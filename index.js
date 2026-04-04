@@ -4,43 +4,42 @@ import fs from "fs";
 
 const app = express();
 
+app.get("/", (req, res) => {
+  res.send("OK");
+});
+
 app.get("/extract", (req, res) => {
   const { url } = req.query;
 
-  if (!url) {
-    return res.status(400).send("Missing URL");
-  }
+  if (!url) return res.status(400).send("Missing URL");
 
   const id = Date.now();
-  const output = `${id}.m4a`;
+  const file = `${id}.m4a`;
 
-  const ytdlp = spawn("yt-dlp", [
+  const proc = spawn("yt-dlp", [
     "-f", "bestaudio",
     "--no-playlist",
-    "-o", output,
+    "-o", file,
     url
   ]);
 
-  ytdlp.on("close", () => {
-    if (!fs.existsSync(output)) {
-      return res.status(500).send("Failed");
-    }
+  proc.on("close", () => {
+    if (!fs.existsSync(file)) return res.status(500).send("Failed");
 
     res.setHeader("Content-Type", "audio/mp4");
-
-    const stream = fs.createReadStream(output);
+    const stream = fs.createReadStream(file);
     stream.pipe(res);
 
-    stream.on("end", () => {
-      fs.unlinkSync(output);
-    });
+    stream.on("end", () => fs.unlinkSync(file));
   });
 
-  ytdlp.on("error", () => {
+  proc.on("error", () => {
     res.status(500).send("Error");
   });
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("running on", PORT);
 });

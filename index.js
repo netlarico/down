@@ -72,6 +72,8 @@ app.get("/extract", (req, res) => {
     "-f",
     "bestaudio",
     "--no-playlist",
+    "--quiet",
+    "--no-warnings",
     "-o",
     output,
     url,
@@ -88,7 +90,8 @@ app.get("/extract", (req, res) => {
       if (fs.existsSync(output)) {
         fs.unlinkSync(output);
       }
-      return res.status(400).send("Error descargando el video. URL válida?");
+      console.error("yt-dlp error:", error);
+      return res.status(400).send("Error descargando. Verifica que la URL sea válida y que el video sea público.");
     }
 
     if (!fs.existsSync(output)) {

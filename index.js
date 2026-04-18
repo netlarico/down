@@ -1,45 +1,87 @@
 import express from "express";
 import { spawn } from "child_process";
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-app.get("/", (req, res) => {
-  res.send("OK");
+// Servir archivos estáticos desde la carpeta public
+app.use(express.static(path.join(__dirname, "public")));
+
+// CORS para peticiones desde el frontend
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  next();
 });
 
 app.get("/extract", (req, res) => {
   const { url } = req.query;
 
-  if (!url) return res.status(400).send("Missing URL");
+  if (!url) {
+    return res.status(400).send("Missing URL");
+  }
 
   const id = Date.now();
-  const file = `${id}.m4a`;
+  const output = `${id}.m4a`;
 
-  const proc = spawn("yt-dlp", [
-    "-f", "bestaudio",
+  const ytdlp = spawn("yt-dlp", [
+    "-f",
+    "bestaudio",
     "--no-playlist",
-    "-o", file,
-    url
+    "-o",
+    output,
+    url,
   ]);
 
-  proc.on("close", () => {
-    if (!fs.existsSync(file)) return res.status(500).send("Failed");
+  let error = "";
 
-    res.setHeader("Content-Type", "audio/mp4");
-    const stream = fs.createReadStream(file);
-    stream.pipe(res);
-
-    stream.on("end", () => fs.unlinkSync(file));
+  ytdlp.stderr.on("data", (data) => {
+    error += data.toString();
   });
 
-  proc.on("error", () => {
-    res.status(500).send("Error");
+  ytdlp.on("close", (code) => {
+    if (code !== 0) {
+      if (fs.existsSync(output)) {
+        fs.unlinkSync(output);
+      }
+      return res.status(400).send("Error descargando el video. URL válida?");
+    }
+
+    if (!fs.existsSync(output)) {
+      return res.status(500).send("Error al procesar el archivo");
+    }
+
+    res.setHeader("Content-Type", "audio/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="${id}.m4a"`);
+
+    const stream = fs.createReadStream(output);
+    stream.pipe(res);
+
+    stream.on("end", () => {
+      fs.unlinkSync(output);
+    });
+
+    stream.on("error", () => {
+      if (fs.existsSync(output)) {
+        fs.unlinkSync(output);
+      }
+    });
+  });
+
+  ytdlp.on("error", () => {
+    if (fs.existsSync(output)) {
+      fs.unlinkSync(output);
+    }
+    res.status(500).send("Error al procesar");
   });
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("running on", PORT);
+app.listen(3000, () => {
+  console.log("🎵 Audio Downloader Server");
+  console.log("📍 http://localhost:3000");
+  console.log("✅ Servidor ejecutándose...");
 });

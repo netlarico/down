@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
 // Función para ejecutar ffmpeg
 function runFfmpeg(inputFile, outputFile, metadata) {
   return new Promise((resolve, reject) => {
-    const args = ["-i", inputFile, "-c", "copy"];
+    const args = ["-i", inputFile];
 
     if (metadata.title) {
       args.push("-metadata", `title=${metadata.title}`);
@@ -34,7 +34,7 @@ function runFfmpeg(inputFile, outputFile, metadata) {
       args.push("-metadata", `artist=${metadata.artist}`);
     }
 
-    args.push("-y", outputFile);
+    args.push("-c", "copy", "-y", outputFile);
 
     const ffmpeg = spawn("ffmpeg", args);
     let error = "";
@@ -91,7 +91,11 @@ app.get("/extract", (req, res) => {
         fs.unlinkSync(output);
       }
       console.error("yt-dlp error:", error);
-      return res.status(400).send("Error descargando. Verifica que la URL sea válida y que el video sea público.");
+      return res
+        .status(400)
+        .send(
+          "Error descargando. Verifica que la URL sea válida y que el video sea público.",
+        );
     }
 
     if (!fs.existsSync(output)) {

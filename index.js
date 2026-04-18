@@ -68,6 +68,19 @@ app.get("/extract", (req, res) => {
   const output = `${id}.m4a`;
   const outputWithMetadata = `${id}_meta.m4a`;
 
+  // Generar nombre del archivo personalizado
+  let filename = `${id}.m4a`;
+  if (title || artist) {
+    let name = "";
+    if (title) name += title.trim();
+    if (title && artist) name += " - ";
+    if (artist) name += artist.trim();
+    
+    // Limpiar caracteres inválidos para nombres de archivo
+    name = name.replace(/[/\\?%*:|"<>]/g, "");
+    filename = `${name}.m4a`;
+  }
+
   const ytdlp = spawn("yt-dlp", [
     "-f",
     "bestaudio",
@@ -111,7 +124,7 @@ app.get("/extract", (req, res) => {
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${id}.m4a"`,
+          `attachment; filename="${filename}"`,
         );
 
         const stream = fs.createReadStream(outputWithMetadata);
@@ -131,7 +144,7 @@ app.get("/extract", (req, res) => {
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${id}.m4a"`,
+          `attachment; filename="${filename}"`,
         );
 
         const stream = fs.createReadStream(output);

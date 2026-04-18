@@ -22,8 +22,43 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Función para ejecutar ffmpeg
+function runFfmpeg(inputFile, outputFile, metadata) {
+  return new Promise((resolve, reject) => {
+    const args = ["-i", inputFile, "-c", "copy"];
+
+    if (metadata.title) {
+      args.push("-metadata", `title=${metadata.title}`);
+    }
+    if (metadata.artist) {
+      args.push("-metadata", `artist=${metadata.artist}`);
+    }
+
+    args.push("-y", outputFile);
+
+    const ffmpeg = spawn("ffmpeg", args);
+    let error = "";
+
+    ffmpeg.stderr.on("data", (data) => {
+      error += data.toString();
+    });
+
+    ffmpeg.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`FFmpeg error: ${error}`));
+      } else {
+        resolve();
+      }
+    });
+
+    ffmpeg.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
 app.get("/extract", (req, res) => {
-  const { url } = req.query;
+  const { url, title, artist } = req.query;
 
   if (!url) {
     return res.status(400).send("Missing URL");
@@ -31,6 +66,7 @@ app.get("/extract", (req, res) => {
 
   const id = Date.now();
   const output = `${id}.m4a`;
+  const outputWithMetadata = `${id}_meta.m4a`;
 
   const ytdlp = spawn("yt-dlp", [
     "-f",
@@ -47,7 +83,7 @@ app.get("/extract", (req, res) => {
     error += data.toString();
   });
 
-  ytdlp.on("close", (code) => {
+  ytdlp.on("close", async (code) => {
     if (code !== 0) {
       if (fs.existsSync(output)) {
         fs.unlinkSync(output);
@@ -59,21 +95,61 @@ app.get("/extract", (req, res) => {
       return res.status(500).send("Error al procesar el archivo");
     }
 
-    res.setHeader("Content-Type", "audio/mp4");
-    res.setHeader("Content-Disposition", `attachment; filename="${id}.m4a"`);
+    try {
+      // Si hay metadata, usar ffmpeg para agregarla
+      if (title || artist) {
+        await runFfmpeg(output, outputWithMetadata, { title, artist });
+        fs.unlinkSync(output);
 
-    const stream = fs.createReadStream(output);
-    stream.pipe(res);
+        res.setHeader("Content-Type", "audio/mp4");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${id}.m4a"`
+        );
 
-    stream.on("end", () => {
-      fs.unlinkSync(output);
-    });
+        const stream = fs.createReadStream(outputWithMetadata);
+        stream.pipe(res);
 
-    stream.on("error", () => {
+        stream.on("end", () => {
+          fs.unlinkSync(outputWithMetadata);
+        });
+
+        stream.on("error", () => {
+          if (fs.existsSync(outputWithMetadata)) {
+            fs.unlinkSync(outputWithMetadata);
+          }
+        });
+      } else {
+        // Sin metadata, servir directamente
+        res.setHeader("Content-Type", "audio/mp4");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${id}.m4a"`
+        );
+
+        const stream = fs.createReadStream(output);
+        stream.pipe(res);
+
+        stream.on("end", () => {
+          fs.unlinkSync(output);
+        });
+
+        stream.on("error", () => {
+          if (fs.existsSync(output)) {
+            fs.unlinkSync(output);
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Error procesando archivo:", err);
       if (fs.existsSync(output)) {
         fs.unlinkSync(output);
       }
-    });
+      if (fs.existsSync(outputWithMetadata)) {
+        fs.unlinkSync(outputWithMetadata);
+      }
+      res.status(500).send("Error al procesar el archivo");
+    }
   });
 
   ytdlp.on("error", () => {

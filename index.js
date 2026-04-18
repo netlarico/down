@@ -104,7 +104,7 @@ app.get("/extract", (req, res) => {
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${id}.m4a"`
+          `attachment; filename="${id}.m4a"`,
         );
 
         const stream = fs.createReadStream(outputWithMetadata);
@@ -124,7 +124,7 @@ app.get("/extract", (req, res) => {
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${id}.m4a"`
+          `attachment; filename="${id}.m4a"`,
         );
 
         const stream = fs.createReadStream(output);

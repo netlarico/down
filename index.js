@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
 // Función para ejecutar ffmpeg
 function runFfmpeg(inputFile, outputFile, metadata) {
   return new Promise((resolve, reject) => {
-    const args = ["-i", inputFile];
+    const args = ["-i", inputFile, "-vn"];
 
     if (metadata.title) {
       args.push("-metadata", `title=${metadata.title}`);
@@ -34,7 +34,7 @@ function runFfmpeg(inputFile, outputFile, metadata) {
       args.push("-metadata", `artist=${metadata.artist}`);
     }
 
-    args.push("-c", "copy", "-y", outputFile);
+    args.push("-acodec", "copy", "-y", outputFile);
 
     const ffmpeg = spawn("ffmpeg", args);
     let error = "";
@@ -75,7 +75,7 @@ app.get("/extract", (req, res) => {
     if (title) name += title.trim();
     if (title && artist) name += " - ";
     if (artist) name += artist.trim();
-    
+
     // Limpiar caracteres inválidos para nombres de archivo
     name = name.replace(/[/\\?%*:|"<>]/g, "");
     filename = `${name}.m4a`;
@@ -83,7 +83,9 @@ app.get("/extract", (req, res) => {
 
   const ytdlp = spawn("yt-dlp", [
     "-f",
-    "bestaudio",
+    "bestaudio/best",
+    "--audio-format",
+    "m4a",
     "--no-playlist",
     "--quiet",
     "--no-warnings",

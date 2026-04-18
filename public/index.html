@@ -22,6 +22,15 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+            gap: 20px;
+        }
+
+        .wrapper {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            align-items: flex-start;
         }
 
         .container {
@@ -29,8 +38,60 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
+            flex: 1;
+            min-width: 300px;
             max-width: 600px;
-            width: 100%;
+        }
+
+        .logs-panel {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            flex: 0 0 300px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .logs-panel h2 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .log-entry {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            border-radius: 5px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .log-entry strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .log-info {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+            font-size: 12px;
+        }
+
+        .log-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .log-value {
+            color: #333;
         }
 
         .header {
@@ -186,6 +247,18 @@
             color: #555;
         }
 
+        @media (max-width: 900px) {
+            .wrapper {
+                flex-direction: column;
+            }
+
+            .logs-panel {
+                flex: 1;
+                width: 100%;
+                max-height: 300px;
+            }
+        }
+
         @media (max-width: 500px) {
             .container {
                 padding: 24px;
@@ -207,43 +280,50 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎵 Audio Downloader</h1>
-            <p>Descarga audio de videos en segundos</p>
+    <div class="wrapper">
+        <div class="container">
+            <div class="header">
+                <h1>🎵 Audio Downloader</h1>
+                <p>Descarga audio de videos en segundos</p>
+            </div>
+
+            <div class="info-box">
+                ℹ️ Compatible con Facebook, YouTube, Instagram, TikTok y muchas plataformas más
+            </div>
+
+            <form id="downloadForm">
+                <div class="form-group">
+                    <label for="videoUrl">URL del Video</label>
+                    <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.facebook.com/share/v/1KT82FERZ3/" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="title">Título / Nombre</label>
+                    <input type="text" id="title" name="title" placeholder="Ej: Mi canción favorita" />
+                </div>
+
+                <div class="form-group">
+                    <label for="artist">Autor / Grupo</label>
+                    <input type="text" id="artist" name="artist" placeholder="Ej: Artista o Banda" />
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn-download" id="downloadBtn">
+                        ⬇️ Descargar Audio
+                    </button>
+                    <button type="reset" class="btn-clear">
+                        🔄 Limpiar
+                    </button>
+                </div>
+            </form>
+
+            <div id="status" class="status"></div>
         </div>
 
-        <div class="info-box">
-            ℹ️ Compatible con Facebook, YouTube, Instagram, TikTok y muchas plataformas más
+        <div class="logs-panel">
+            <h2>📋 Historial</h2>
+            <div id="logs-container"></div>
         </div>
-
-        <form id="downloadForm">
-            <div class="form-group">
-                <label for="videoUrl">URL del Video</label>
-                <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.facebook.com/share/v/1KT82FERZ3/" required />
-            </div>
-
-            <div class="form-group">
-                <label for="title">Título / Nombre</label>
-                <input type="text" id="title" name="title" placeholder="Ej: Mi canción favorita" />
-            </div>
-
-            <div class="form-group">
-                <label for="artist">Autor / Grupo</label>
-                <input type="text" id="artist" name="artist" placeholder="Ej: Artista o Banda" />
-            </div>
-
-            <div class="button-group">
-                <button type="submit" class="btn-download" id="downloadBtn">
-                    ⬇️ Descargar Audio
-                </button>
-                <button type="reset" class="btn-clear">
-                    🔄 Limpiar
-                </button>
-            </div>
-        </form>
-
-        <div id="status" class="status"></div>
     </div>
 
     <script>
@@ -253,6 +333,53 @@
         const artistInput = document.getElementById('artist');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusDiv = document.getElementById('status');
+        const logsContainer = document.getElementById('logs-container');
+
+        // Función para formatear bytes a KB/MB
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Función para formatear tiempo en minutos:segundos
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Agregar entrada al log
+        function addLogEntry(filename, info) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const title = filename.replace('.m4a', '');
+            entry.innerHTML = `
+                <strong>${title}</strong>
+                <div class="log-info">
+                    <span class="log-label">Tamaño:</span>
+                    <span class="log-value">${formatBytes(info.size)}</span>
+                </div>
+                <div class="log-info">
+                    <span class="log-label">Duración:</span>
+                    <span class="log-value">${info.duration || 'N/A'}</span>
+                </div>
+                <div class="log-info">
+                    <span class="log-label">Bitrate:</span>
+                    <span class="log-value">${info.bitrate || 'N/A'}</span>
+                </div>
+            `;
+            
+            logsContainer.insertBefore(entry, logsContainer.firstChild);
+            
+            // Mantener solo los últimos 10 logs
+            while (logsContainer.children.length > 10) {
+                logsContainer.removeChild(logsContainer.lastChild);
+            }
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -296,6 +423,10 @@
                     }
                 }
 
+                // Obtener información personalizada del servidor
+                const duration = response.headers.get('x-duration') || '';
+                const bitrate = response.headers.get('x-bitrate') || '';
+
                 // Descargar el blob
                 const blob = await response.blob();
                 const downloadUrl = window.URL.createObjectURL(blob);
@@ -306,6 +437,13 @@
                 a.click();
                 window.URL.revokeObjectURL(downloadUrl);
                 document.body.removeChild(a);
+
+                // Agregar al log
+                addLogEntry(filename, {
+                    size: blob.size,
+                    duration: duration,
+                    bitrate: bitrate
+                });
 
                 showStatus('✅ Descarga completada exitosamente', 'success');
                 form.reset();

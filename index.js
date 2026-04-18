@@ -22,6 +22,65 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Función para obtener información del archivo (duración, bitrate)
+function getAudioInfo(filePath) {
+  return new Promise((resolve, reject) => {
+    const ffprobe = spawn("ffprobe", [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration,bit_rate",
+      "-of",
+      "default=noprint_wrappers=1",
+      filePath,
+    ]);
+
+    let output = "";
+
+    ffprobe.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    ffprobe.on("close", (code) => {
+      if (code !== 0) {
+        resolve({ duration: null, bitrate: null });
+        return;
+      }
+
+      try {
+        const lines = output.trim().split("\n");
+        let duration = null;
+        let bitrate = null;
+
+        for (const line of lines) {
+          if (line.startsWith("duration=")) {
+            const durationSeconds = parseFloat(line.split("=")[1]);
+            if (!isNaN(durationSeconds)) {
+              const mins = Math.floor(durationSeconds / 60);
+              const secs = Math.floor(durationSeconds % 60);
+              duration = `${mins}:${secs.toString().padStart(2, "0")}`;
+            }
+          }
+          if (line.startsWith("bit_rate=")) {
+            const bitrateValue = parseInt(line.split("=")[1]);
+            if (!isNaN(bitrateValue)) {
+              bitrate = Math.round(bitrateValue / 1000) + " kbps";
+            }
+          }
+        }
+
+        resolve({ duration, bitrate });
+      } catch (err) {
+        resolve({ duration: null, bitrate: null });
+      }
+    });
+
+    ffprobe.on("error", () => {
+      resolve({ duration: null, bitrate: null });
+    });
+  });
+}
+
 // Función para ejecutar ffmpeg
 function runFfmpeg(inputFile, outputFile, metadata) {
   return new Promise((resolve, reject) => {
@@ -123,11 +182,20 @@ app.get("/extract", (req, res) => {
         await runFfmpeg(output, outputWithMetadata, { title, artist });
         fs.unlinkSync(output);
 
+        // Obtener información del archivo
+        const info = await getAudioInfo(outputWithMetadata);
+
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
           `attachment; filename="${filename}"`,
         );
+        if (info.duration) {
+          res.setHeader("X-Duration", info.duration);
+        }
+        if (info.bitrate) {
+          res.setHeader("X-Bitrate", info.bitrate);
+        }
 
         const stream = fs.createReadStream(outputWithMetadata);
         stream.pipe(res);
@@ -143,11 +211,20 @@ app.get("/extract", (req, res) => {
         });
       } else {
         // Sin metadata, servir directamente
+        // Obtener información del archivo
+        const info = await getAudioInfo(output);
+
         res.setHeader("Content-Type", "audio/mp4");
         res.setHeader(
           "Content-Disposition",
           `attachment; filename="${filename}"`,
         );
+        if (info.duration) {
+          res.setHeader("X-Duration", info.duration);
+        }
+        if (info.bitrate) {
+          res.setHeader("X-Bitrate", info.bitrate);
+        }
 
         const stream = fs.createReadStream(output);
         stream.pipe(res);

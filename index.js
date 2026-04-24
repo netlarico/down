@@ -175,18 +175,51 @@ app.get("/extract", (req, res) => {
     filename = `${name}.m4a`;
   }
 
-  const ytdlp = spawn("yt-dlp", [
+  // Build yt-dlp command with platform-specific optimizations
+  let ytdlpArgs = [
     "-f",
-    "bestaudio/best",
+    "bestaudio[ext=m4a]/bestaudio/best",
+    "--extract-audio",
     "--audio-format",
     "m4a",
+    "--audio-quality",
+    "0",
     "--no-playlist",
     "--quiet",
     "--no-warnings",
+    "--no-check-certificate",
+    "--user-agent",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "-o",
     output,
     url,
-  ]);
+  ];
+
+  // Add YouTube-specific options
+  if (platform === 'YouTube') {
+    ytdlpArgs = [
+      "-f",
+      "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+      "--extract-audio",
+      "--audio-format",
+      "m4a",
+      "--audio-quality",
+      "0",
+      "--no-playlist",
+      "--quiet",
+      "--no-warnings",
+      "--no-check-certificate",
+      "--user-agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "--add-header",
+      "Accept-Language: en-US,en;q=0.9",
+      "-o",
+      output,
+      url,
+    ];
+  }
+
+  const ytdlp = spawn("yt-dlp", ytdlpArgs);
 
   let error = "";
 

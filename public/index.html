@@ -554,7 +554,12 @@
                 audioPlayerContainer.style.display = 'block';
 
                 showStatus('✅ Descarga completada exitosamente', 'success');
-                form.reset();
+                
+                // Reset form fields except we don't want to hide the audio player
+                urlInput.value = '';
+                titleInput.value = '';
+                artistInput.value = '';
+                platformDetector.innerHTML = '';
             } catch (error) {
                 showStatus(`❌ Error: ${error.message}`, 'error');
             } finally {
@@ -572,12 +577,13 @@
             statusDiv.className = 'status';
         });
 
-        // Manejar el reset del formulario
-        form.addEventListener('reset', () => {
+        // Manejar el reset del formulario (solo cuando se hace click en el botón)
+        document.querySelector('.btn-clear').addEventListener('click', () => {
             audioPlayerContainer.style.display = 'none';
             audioPlayer.src = '';
             audioInfo.textContent = '';
             platformDetector.innerHTML = '';
+            form.reset();
         });
     </script>
 </body>

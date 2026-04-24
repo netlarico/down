@@ -116,12 +116,47 @@ function runFfmpeg(inputFile, outputFile, metadata) {
   });
 }
 
+// Platform detection helper
+function detectPlatform(url) {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    
+    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+      return 'YouTube';
+    } else if (hostname.includes('instagram.com')) {
+      return 'Instagram';
+    } else if (hostname.includes('tiktok.com') || hostname.includes('tiktokcdn.com')) {
+      return 'TikTok';
+    } else if (hostname.includes('facebook.com') || hostname.includes('fb.watch')) {
+      return 'Facebook';
+    } else if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+      return 'Twitter/X';
+    } else if (hostname.includes('reddit.com')) {
+      return 'Reddit';
+    } else if (hostname.includes('vimeo.com')) {
+      return 'Vimeo';
+    } else if (hostname.includes('twitch.tv')) {
+      return 'Twitch';
+    } else if (hostname.includes('soundcloud.com')) {
+      return 'SoundCloud';
+    }
+    return 'Unknown';
+  } catch (e) {
+    return 'Invalid';
+  }
+}
+
 app.get("/extract", (req, res) => {
   const { url, title, artist } = req.query;
 
   if (!url) {
     return res.status(400).send("Missing URL");
   }
+
+  const platform = detectPlatform(url);
+  console.log(`🎵 Download request from platform: ${platform}`);
+  console.log(`🔗 URL: ${url}`);
 
   const id = Date.now();
   const output = `${id}.m4a`;
@@ -164,17 +199,32 @@ app.get("/extract", (req, res) => {
       if (fs.existsSync(output)) {
         fs.unlinkSync(output);
       }
-      console.error("yt-dlp error:", error);
-      return res
-        .status(400)
-        .send(
-          "Error descargando. Verifica que la URL sea válida y que el video sea público.",
-        );
+      console.error(`yt-dlp error for ${platform}:`, error);
+      
+      // Platform-specific error messages
+      let errorMessage = "Error descargando. Verifica que la URL sea válida y que el video sea público.";
+      
+      if (platform === 'Instagram') {
+        errorMessage = "Error descargando de Instagram. Asegúrate de que el post sea público y no sea una historia privada.";
+      } else if (platform === 'TikTok') {
+        errorMessage = "Error descargando de TikTok. Verifica que el video sea público y la URL sea correcta.";
+      } else if (platform === 'YouTube') {
+        errorMessage = "Error descargando de YouTube. Verifica que el video no sea privado o restringido por edad.";
+      } else if (platform === 'Facebook') {
+        errorMessage = "Error descargando de Facebook. Asegúrate de que el video sea público.";
+      } else if (platform === 'Twitter/X') {
+        errorMessage = "Error descargando de Twitter/X. Verifica que el tweet sea público.";
+      }
+      
+      return res.status(400).send(errorMessage);
     }
 
     if (!fs.existsSync(output)) {
+      console.error(`Output file not found for ${platform}`);
       return res.status(500).send("Error al procesar el archivo");
     }
+
+    console.log(`✅ Successfully downloaded from ${platform}`);
 
     try {
       // Si hay metadata, usar ffmpeg para agregarla

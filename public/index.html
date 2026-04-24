@@ -259,6 +259,20 @@
             }
         }
 
+        .audio-player-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        #audioPlayer {
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
         @media (max-width: 500px) {
             .container {
                 padding: 24px;
@@ -288,13 +302,14 @@
             </div>
 
             <div class="info-box">
-                ℹ️ Compatible con Facebook, YouTube, Instagram, TikTok y muchas plataformas más
+                ℹ️ Compatible con <strong>YouTube</strong>, <strong>Instagram</strong>, <strong>TikTok</strong>, <strong>Facebook</strong>, <strong>Twitter</strong>, <strong>Reddit</strong> y 1000+ plataformas más
             </div>
 
             <form id="downloadForm">
                 <div class="form-group">
                     <label for="videoUrl">URL del Video</label>
-                    <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.facebook.com/share/v/1KT82FERZ3/" required />
+                    <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..." required />
+                    <div id="platform-detector" style="margin-top: 8px; font-size: 12px; color: #666;"></div>
                 </div>
 
                 <div class="form-group">
@@ -317,6 +332,14 @@
                 </div>
             </form>
 
+            <div id="audio-player-container" class="audio-player-container" style="display: none;">
+                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">🎵 Reproductor de Audio</h3>
+                <audio id="audioPlayer" controls style="width: 100%; outline: none;">
+                    Tu navegador no soporta el elemento de audio.
+                </audio>
+                <div id="audio-info" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+            </div>
+
             <div id="status" class="status"></div>
         </div>
 
@@ -334,6 +357,62 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const statusDiv = document.getElementById('status');
         const logsContainer = document.getElementById('logs-container');
+        const platformDetector = document.getElementById('platform-detector');
+        const audioPlayerContainer = document.getElementById('audio-player-container');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioInfo = document.getElementById('audio-info');
+
+        // Platform detection
+        function detectPlatform(url) {
+            const platforms = {
+                'youtube.com': { name: 'YouTube', icon: '📺', color: '#FF0000' },
+                'youtu.be': { name: 'YouTube', icon: '📺', color: '#FF0000' },
+                'instagram.com': { name: 'Instagram', icon: '📷', color: '#E4405F' },
+                'tiktok.com': { name: 'TikTok', icon: '🎵', color: '#000000' },
+                'facebook.com': { name: 'Facebook', icon: '📘', color: '#1877F2' },
+                'fb.watch': { name: 'Facebook', icon: '📘', color: '#1877F2' },
+                'twitter.com': { name: 'Twitter/X', icon: '🐦', color: '#1DA1F2' },
+                'x.com': { name: 'Twitter/X', icon: '🐦', color: '#1DA1F2' },
+                'reddit.com': { name: 'Reddit', icon: '🤖', color: '#FF4500' },
+                'vimeo.com': { name: 'Vimeo', icon: '🎬', color: '#00AD4E' },
+                'twitch.tv': { name: 'Twitch', icon: '🎮', color: '#9146FF' },
+                'soundcloud.com': { name: 'SoundCloud', icon: '🎧', color: '#FF5500' },
+                'tiktokcdn.com': { name: 'TikTok', icon: '🎵', color: '#000000' }
+            };
+
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.toLowerCase();
+                
+                for (const [domain, info] of Object.entries(platforms)) {
+                    if (hostname.includes(domain)) {
+                        return info;
+                    }
+                }
+            } catch (e) {
+                // Invalid URL
+            }
+            
+            return null;
+        }
+
+        // Update platform detection when URL changes
+        urlInput.addEventListener('input', () => {
+            const url = urlInput.value.trim();
+            if (url) {
+                const platform = detectPlatform(url);
+                if (platform) {
+                    platformDetector.innerHTML = `<span style="color: ${platform.color};">${platform.icon} Plataforma detectada: ${platform.name}</span>`;
+                } else {
+                    platformDetector.innerHTML = '<span style="color: #888;">🌐 Plataforma no específica (intento con yt-dlp)</span>';
+                }
+            } else {
+                platformDetector.innerHTML = '';
+            }
+            
+            // Clear status when user types
+            statusDiv.className = 'status';
+        });
 
         // Función para formatear bytes a KB/MB
         function formatBytes(bytes) {
@@ -355,7 +434,7 @@
         function addLogEntry(filename, info) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            
+
             const title = filename.replace('.m4a', '');
             entry.innerHTML = `
                 <strong>${title}</strong>
@@ -372,9 +451,9 @@
                     <span class="log-value">${info.bitrate || 'N/A'}</span>
                 </div>
             `;
-            
+
             logsContainer.insertBefore(entry, logsContainer.firstChild);
-            
+
             // Mantener solo los últimos 10 logs
             while (logsContainer.children.length > 10) {
                 logsContainer.removeChild(logsContainer.lastChild);
@@ -388,6 +467,21 @@
             if (!url) {
                 showStatus('Por favor ingresa una URL válida', 'error');
                 return;
+            }
+
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch (e) {
+                showStatus('La URL no tiene un formato válido', 'error');
+                return;
+            }
+
+            const platform = detectPlatform(url);
+            if (platform) {
+                console.log(`Intentando descargar desde ${platform.name}...`);
+            } else {
+                console.log('Plataforma no detectada, intentando con yt-dlp genérico...');
             }
 
             try {
@@ -445,6 +539,20 @@
                     bitrate: bitrate
                 });
 
+                // Cargar el audio en el reproductor
+                const audioUrl = window.URL.createObjectURL(blob);
+                audioPlayer.src = audioUrl;
+                audioPlayer.load();
+                
+                // Mostrar información del audio
+                let infoText = `📁 ${filename}`;
+                if (duration) infoText += ` | ⏱️ ${duration}`;
+                if (bitrate) infoText += ` | 🎵 ${bitrate}`;
+                audioInfo.textContent = infoText;
+                
+                // Mostrar el reproductor
+                audioPlayerContainer.style.display = 'block';
+
                 showStatus('✅ Descarga completada exitosamente', 'success');
                 form.reset();
             } catch (error) {
@@ -462,6 +570,14 @@
         // Limpiar mensaje de estado cuando el usuario escribe
         urlInput.addEventListener('input', () => {
             statusDiv.className = 'status';
+        });
+
+        // Manejar el reset del formulario
+        form.addEventListener('reset', () => {
+            audioPlayerContainer.style.display = 'none';
+            audioPlayer.src = '';
+            audioInfo.textContent = '';
+            platformDetector.innerHTML = '';
         });
     </script>
 </body>

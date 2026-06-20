@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <meta name="googlebot" content="noindex, nofollow">
-    <title>Audio Downloader - Extrae audio de videos</title>
+    <title>Downloader media</title>
     <style>
         * {
             margin: 0;
@@ -48,7 +48,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 20px;
-            flex: 0 0 300px;
+            flex: 0 0 auto;
             max-height: 500px;
             overflow-y: auto;
         }
@@ -237,6 +237,84 @@
             }
         }
 
+        /* Progress bar styles */
+        .progress-container {
+            margin-top: 14px;
+            text-align: left;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .progress-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0c5460;
+            letter-spacing: 0.3px;
+        }
+
+        .progress-percent {
+            font-size: 15px;
+            font-weight: 800;
+            color: #667eea;
+            min-width: 42px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+            transition: color 0.3s ease;
+        }
+
+        .progress-percent.complete {
+            color: #28a745;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: rgba(102, 126, 234, 0.15);
+            border-radius: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -60%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+            animation: shimmer 1.4s ease-in-out infinite;
+        }
+
+        .progress-fill.complete {
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            transition: width 0.3s ease, background 0.4s ease;
+        }
+
+        .progress-fill.complete::after {
+            display: none;
+        }
+
+        @keyframes shimmer {
+            0%   { left: -60%; }
+            100% { left: 120%; }
+        }
+
         .info-box {
             background: #f8f9fa;
             border-left: 4px solid #667eea;
@@ -260,16 +338,16 @@
         }
 
         .audio-player-container {
-               border-radius: 50px;
-    background: #f6f6f7;
-           
+            border-radius: 50px;
+            background: #f6f6f7;
+
             padding: 20px;
             margin-top: 20px;
             border: 1px solid #e0e0e0;
         }
 
         #audioPlayer {
-            border-radius: 8px;
+            border-radius: 50px;
             background: #fff;
             box-shadow: 0 2px 8px rgb(255 255 255 / 10%);
         }
@@ -298,17 +376,19 @@
     <div class="wrapper">
         <div class="container">
             <div class="header">
-                <h1>🎵 Audio Downloader</h1>
-                <p>Descarga audio de videos en segundos</p>
+                <h1>🎵 Media Downloader</h1>
             </div>
 
-             
+
 
             <form id="downloadForm">
                 <div class="form-group">
-                    <label for="videoUrl">URL del Video</label>
-                    <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..." required />
-                    <div id="platform-detector" style="margin-top: 8px; font-size: 12px; color: #666;"></div>
+                    <label for="videoUrl">URL del Video
+                        <span id="platform-detector" style="font-size: 12px; color: #666;"></span>
+                    </label>
+                    <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..."
+                        required />
+
                 </div>
 
                 <div class="form-group">
@@ -382,7 +462,7 @@
             try {
                 const urlObj = new URL(url);
                 const hostname = urlObj.hostname.toLowerCase();
-                
+
                 for (const [domain, info] of Object.entries(platforms)) {
                     if (hostname.includes(domain)) {
                         return info;
@@ -391,7 +471,7 @@
             } catch (e) {
                 // Invalid URL
             }
-            
+
             return null;
         }
 
@@ -408,7 +488,7 @@
             } else {
                 platformDetector.innerHTML = '';
             }
-            
+
             // Clear status when user types
             statusDiv.className = 'status';
         });
@@ -483,9 +563,61 @@
                 console.log('Plataforma no detectada, intentando con yt-dlp genérico...');
             }
 
+            // Progress bar helpers
+            let progressInterval = null;
+            let currentProgress = 0;
+
+            function startProgress() {
+                currentProgress = 0;
+                showStatus(
+                    '<span class="spinner"></span>Descargando audio...' +
+                    '<div class="progress-container">' +
+                        '<div class="progress-header">' +
+                            '<span class="progress-label">Procesando</span>' +
+                            '<span class="progress-percent" id="progressPercent">0%</span>' +
+                        '</div>' +
+                        '<div class="progress-track">' +
+                            '<div class="progress-fill" id="progressFill"></div>' +
+                        '</div>' +
+                    '</div>',
+                    'loading'
+                );
+
+                // Simulate progress up to 88% while waiting for server response
+                progressInterval = setInterval(() => {
+                    if (currentProgress < 88) {
+                        // Faster at start, slower near the cap
+                        const step = currentProgress < 40 ? 3 : currentProgress < 70 ? 1.5 : 0.5;
+                        currentProgress = Math.min(88, currentProgress + step);
+                        updateProgressUI(currentProgress, false);
+                    }
+                }, 250);
+            }
+
+            function updateProgressUI(pct, complete) {
+                const fill = document.getElementById('progressFill');
+                const label = document.getElementById('progressPercent');
+                if (!fill || !label) return;
+                fill.style.width = pct + '%';
+                label.textContent = Math.round(pct) + '%';
+                if (complete) {
+                    fill.classList.add('complete');
+                    label.classList.add('complete');
+                }
+            }
+
+            function finishProgress(success) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+                if (success) {
+                    currentProgress = 100;
+                    updateProgressUI(100, true);
+                }
+            }
+
             try {
                 downloadBtn.disabled = true;
-                showStatus('<span class="spinner"></span>Descargando audio...', 'loading');
+                startProgress();
 
                 // Construir la URL con parámetros
                 const params = new URLSearchParams();
@@ -522,6 +654,13 @@
 
                 // Descargar el blob
                 const blob = await response.blob();
+
+                // Completar barra al 100%
+                finishProgress(true);
+
+                // Pequeña pausa para que el usuario vea el 100%
+                await new Promise(r => setTimeout(r, 500));
+
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = downloadUrl;
@@ -542,24 +681,25 @@
                 const audioUrl = window.URL.createObjectURL(blob);
                 audioPlayer.src = audioUrl;
                 audioPlayer.load();
-                
+
                 // Mostrar información del audio
                 let infoText = `📁 ${filename}`;
                 if (duration) infoText += ` | ⏱️ ${duration}`;
                 if (bitrate) infoText += ` | 🎵 ${bitrate}`;
                 audioInfo.textContent = infoText;
-                
+
                 // Mostrar el reproductor
                 audioPlayerContainer.style.display = 'block';
 
                 showStatus('✅ Descarga completada exitosamente', 'success');
-                
+
                 // Reset form fields except we don't want to hide the audio player
                 urlInput.value = '';
                 titleInput.value = '';
                 artistInput.value = '';
                 platformDetector.innerHTML = '';
             } catch (error) {
+                finishProgress(false);
                 showStatus(`❌ Error: ${error.message}`, 'error');
             } finally {
                 downloadBtn.disabled = false;

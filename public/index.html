@@ -154,7 +154,7 @@
             padding: 12px 24px;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -188,6 +188,7 @@
             background: #e0e0e0;
         }
 
+        /* Status toast */
         .status {
             margin-top: 20px;
             padding: 16px;
@@ -197,7 +198,11 @@
             position: fixed;
             right: 20px;
             bottom: 20px;
+            min-width: 260px;
+            max-width: 380px;
+            z-index: 999;
             display: none;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
         }
 
         .status.show {
@@ -235,12 +240,10 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
-        /* Progress bar styles */
+        /* Progress bar */
         .progress-container {
             margin-top: 14px;
             text-align: left;
@@ -271,9 +274,7 @@
             transition: color 0.3s ease;
         }
 
-        .progress-percent.complete {
-            color: #28a745;
-        }
+        .progress-percent.complete { color: #28a745; }
 
         .progress-track {
             width: 100%;
@@ -309,18 +310,236 @@
             transition: width 0.3s ease, background 0.4s ease;
         }
 
-        .progress-fill.complete::after {
-            display: none;
-        }
+        .progress-fill.complete::after { display: none; }
 
         @keyframes shimmer {
-            0% {
-                left: -60%;
-            }
+            0%   { left: -60%; }
+            100% { left: 120%; }
+        }
 
-            100% {
-                left: 120%;
-            }
+        /* Audio player */
+        .audio-player-container {
+            border-radius: 8px;
+            background: #f6f6f7;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        #audioPlayer {
+            border-radius: 50px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgb(255 255 255 / 10%);
+        }
+
+        /* Post-download action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn-action-download {
+            flex: 1;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 11px 16px;
+            font-size: 14px;
+        }
+
+        .btn-action-download:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(40, 167, 69, 0.35);
+        }
+
+        .btn-action-edit {
+            flex: 1;
+            background: linear-gradient(135deg, #fd7e14 0%, #e83e8c 100%);
+            color: white;
+            padding: 11px 16px;
+            font-size: 14px;
+        }
+
+        .btn-action-edit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(253, 126, 20, 0.35);
+        }
+
+        /* ─── CUT PANEL ─────────────────────────────────────────────── */
+        .cut-panel {
+            margin-top: 20px;
+            background: #fff;
+            border: 2px solid #fd7e14;
+            border-radius: 14px;
+            padding: 20px;
+            display: none;
+            animation: slideDown 0.25s ease;
+        }
+
+        .cut-panel.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .cut-panel h4 {
+            font-size: 15px;
+            color: #c05000;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* Dual range track */
+        .range-wrapper {
+            position: relative;
+            margin: 10px 0 22px;
+        }
+
+        .range-track-bg {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .range-track-fill {
+            position: absolute;
+            top: 50%;
+            height: 6px;
+            background: linear-gradient(90deg, #fd7e14, #e83e8c);
+            border-radius: 10px;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .range-wrapper input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 6px;
+            background: transparent;
+            pointer-events: none;
+            left: 0;
+        }
+
+        .range-wrapper input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid #fd7e14;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+            pointer-events: all;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .range-wrapper input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .range-wrapper input[type="range"]#rangeEnd::-webkit-slider-thumb {
+            border-color: #e83e8c;
+        }
+
+        .range-spacer {
+            height: 28px;
+        }
+
+        /* Time inputs row */
+        .cut-times {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .cut-time-group {
+            flex: 1;
+        }
+
+        .cut-time-group label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .cut-time-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #333;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            transition: border-color 0.2s;
+        }
+
+        .cut-time-input:focus {
+            outline: none;
+            border-color: #fd7e14;
+            box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.1);
+        }
+
+        .cut-time-sep {
+            color: #aaa;
+            font-size: 22px;
+            padding-top: 20px;
+            flex: 0 0 auto;
+        }
+
+        .cut-duration-badge {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 14px;
+        }
+
+        .cut-duration-badge strong {
+            color: #c05000;
+        }
+
+        .btn-cut-download {
+            width: 100%;
+            background: linear-gradient(135deg, #fd7e14 0%, #e83e8c 100%);
+            color: white;
+            padding: 13px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .btn-cut-download:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(253, 126, 20, 0.35);
+        }
+
+        .btn-cut-download:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .info-box {
@@ -334,48 +553,15 @@
         }
 
         @media (max-width: 900px) {
-            .wrapper {
-                flex-direction: column;
-            }
-
-            .logs-panel {
-                flex: 1;
-                width: 100%;
-                max-height: 680px;
-            }
-        }
-
-        .audio-player-container {
-            border-radius: 8px;
-            background: #f6f6f7;
-
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid #e0e0e0;
-        }
-
-        #audioPlayer {
-            border-radius: 50px;
-            background: #fff;
-            box-shadow: 0 2px 8px rgb(255 255 255 / 10%);
+            .wrapper { flex-direction: column; }
+            .logs-panel { flex: 1; width: 100%; max-height: 680px; }
         }
 
         @media (max-width: 500px) {
-            .container {
-                padding: 24px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .button-group {
-                flex-direction: column;
-            }
-
-            button {
-                width: 100%;
-            }
+            .container { padding: 24px; }
+            .header h1 { font-size: 24px; }
+            .button-group { flex-direction: column; }
+            button { width: 100%; }
         }
     </style>
 </head>
@@ -387,8 +573,6 @@
                 <h1>🎵 Media Downloader</h1>
             </div>
 
-
-
             <form id="downloadForm">
                 <div class="form-group">
                     <label for="videoUrl">URL del Video
@@ -396,7 +580,6 @@
                     </label>
                     <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..."
                         required />
-
                 </div>
 
                 <div class="form-group">
@@ -411,9 +594,9 @@
 
                 <div class="button-group">
                     <button type="submit" class="btn-download" id="downloadBtn">
-                        ⬇️ Descargar Audio
+                        ⬇️ Procesar Audio
                     </button>
-                    <button type="reset" class="btn-clear">
+                    <button type="button" class="btn-clear" id="clearBtn">
                         🔄 Limpiar
                     </button>
                 </div>
@@ -421,15 +604,53 @@
 
             <div id="status" class="status"></div>
 
+            <!-- Audio player -->
             <div id="audio-player-container" class="audio-player-container" style="display: none;">
                 <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">🎵 Reproductor de Audio</h3>
                 <audio id="audioPlayer" controls style="width: 100%; outline: none;">
                     Tu navegador no soporta el elemento de audio.
                 </audio>
                 <div id="audio-info" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+
+                <!-- Action buttons: download as-is / edit -->
+                <div class="action-buttons" id="actionButtons" style="display:none;">
+                    <button class="btn-action-download" id="btnSaveOriginal">⬇️ Descargar tal cual</button>
+                    <button class="btn-action-edit" id="btnEditCut">✂️ Editar / Cortar</button>
+                </div>
             </div>
 
+            <!-- CUT panel -->
+            <div id="cutPanel" class="cut-panel">
+                <h4>✂️ Herramienta de Corte</h4>
 
+                <div class="range-wrapper" id="rangeWrapper">
+                    <div class="range-track-bg"></div>
+                    <div class="range-track-fill" id="rangeTrackFill"></div>
+                    <div class="range-spacer"></div>
+                    <input type="range" id="rangeStart" min="0" max="100" value="0" step="0.1">
+                    <input type="range" id="rangeEnd"   min="0" max="100" value="100" step="0.1">
+                </div>
+
+                <div class="cut-times">
+                    <div class="cut-time-group">
+                        <label for="inputStart">Inicio</label>
+                        <input class="cut-time-input" type="text" id="inputStart" value="0:00" />
+                    </div>
+                    <div class="cut-time-sep">→</div>
+                    <div class="cut-time-group">
+                        <label for="inputEnd">Fin</label>
+                        <input class="cut-time-input" type="text" id="inputEnd" value="0:00" />
+                    </div>
+                </div>
+
+                <div class="cut-duration-badge">
+                    Duración seleccionada: <strong id="cutDurationLabel">0:00</strong>
+                </div>
+
+                <button class="btn-cut-download" id="btnCutDownload">
+                    ✂️ Cortar y Descargar
+                </button>
+            </div>
         </div>
 
         <div class="logs-panel">
@@ -439,91 +660,107 @@
     </div>
 
     <script>
-        const form = document.getElementById('downloadForm');
-        const urlInput = document.getElementById('videoUrl');
-        const titleInput = document.getElementById('title');
-        const artistInput = document.getElementById('artist');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const statusDiv = document.getElementById('status');
-        const logsContainer = document.getElementById('logs-container');
-        const platformDetector = document.getElementById('platform-detector');
-        const audioPlayerContainer = document.getElementById('audio-player-container');
-        const audioPlayer = document.getElementById('audioPlayer');
-        const audioInfo = document.getElementById('audio-info');
+        // ─── DOM refs ────────────────────────────────────────────────
+        const form                  = document.getElementById('downloadForm');
+        const urlInput              = document.getElementById('videoUrl');
+        const titleInput            = document.getElementById('title');
+        const artistInput           = document.getElementById('artist');
+        const downloadBtn           = document.getElementById('downloadBtn');
+        const clearBtn              = document.getElementById('clearBtn');
+        const statusDiv             = document.getElementById('status');
+        const logsContainer         = document.getElementById('logs-container');
+        const platformDetector      = document.getElementById('platform-detector');
+        const audioPlayerContainer  = document.getElementById('audio-player-container');
+        const audioPlayer           = document.getElementById('audioPlayer');
+        const audioInfo             = document.getElementById('audio-info');
+        const actionButtons         = document.getElementById('actionButtons');
+        const btnSaveOriginal       = document.getElementById('btnSaveOriginal');
+        const btnEditCut            = document.getElementById('btnEditCut');
+        const cutPanel              = document.getElementById('cutPanel');
+        const rangeStart            = document.getElementById('rangeStart');
+        const rangeEnd              = document.getElementById('rangeEnd');
+        const rangeTrackFill        = document.getElementById('rangeTrackFill');
+        const inputStart            = document.getElementById('inputStart');
+        const inputEnd              = document.getElementById('inputEnd');
+        const cutDurationLabel      = document.getElementById('cutDurationLabel');
+        const btnCutDownload        = document.getElementById('btnCutDownload');
 
-        // Platform detection
+        // ─── App state ───────────────────────────────────────────────
+        let currentBlob      = null;   // blob of the full downloaded audio
+        let currentFilename  = '';
+        let currentUrl       = '';
+        let currentTitle     = '';
+        let currentArtist    = '';
+        let totalDurationSec = 0;      // total duration in seconds (from server header)
+
+        // ─── Platform detection ──────────────────────────────────────
         function detectPlatform(url) {
             const platforms = {
-                'youtube.com': { name: 'YouTube', icon: '📺', color: '#FF0000' },
-                'youtu.be': { name: 'YouTube', icon: '📺', color: '#FF0000' },
-                'instagram.com': { name: 'Instagram', icon: '📷', color: '#E4405F' },
-                'tiktok.com': { name: 'TikTok', icon: '🎵', color: '#000000' },
-                'facebook.com': { name: 'Facebook', icon: '📘', color: '#1877F2' },
-                'fb.watch': { name: 'Facebook', icon: '📘', color: '#1877F2' },
-                'twitter.com': { name: 'Twitter/X', icon: '🐦', color: '#1DA1F2' },
-                'x.com': { name: 'Twitter/X', icon: '🐦', color: '#1DA1F2' },
-                'reddit.com': { name: 'Reddit', icon: '🤖', color: '#FF4500' },
-                'vimeo.com': { name: 'Vimeo', icon: '🎬', color: '#00AD4E' },
-                'twitch.tv': { name: 'Twitch', icon: '🎮', color: '#9146FF' },
-                'soundcloud.com': { name: 'SoundCloud', icon: '🎧', color: '#FF5500' },
-                'tiktokcdn.com': { name: 'TikTok', icon: '🎵', color: '#000000' }
+                'youtube.com':   { name: 'YouTube',    icon: '📺', color: '#FF0000' },
+                'youtu.be':      { name: 'YouTube',    icon: '📺', color: '#FF0000' },
+                'instagram.com': { name: 'Instagram',  icon: '📷', color: '#E4405F' },
+                'tiktok.com':    { name: 'TikTok',     icon: '🎵', color: '#000000' },
+                'facebook.com':  { name: 'Facebook',   icon: '📘', color: '#1877F2' },
+                'fb.watch':      { name: 'Facebook',   icon: '📘', color: '#1877F2' },
+                'twitter.com':   { name: 'Twitter/X',  icon: '🐦', color: '#1DA1F2' },
+                'x.com':         { name: 'Twitter/X',  icon: '🐦', color: '#1DA1F2' },
+                'reddit.com':    { name: 'Reddit',     icon: '🤖', color: '#FF4500' },
+                'vimeo.com':     { name: 'Vimeo',      icon: '🎬', color: '#00AD4E' },
+                'twitch.tv':     { name: 'Twitch',     icon: '🎮', color: '#9146FF' },
+                'soundcloud.com':{ name: 'SoundCloud', icon: '🎧', color: '#FF5500' },
             };
-
             try {
-                const urlObj = new URL(url);
-                const hostname = urlObj.hostname.toLowerCase();
-
+                const hostname = new URL(url).hostname.toLowerCase();
                 for (const [domain, info] of Object.entries(platforms)) {
-                    if (hostname.includes(domain)) {
-                        return info;
-                    }
+                    if (hostname.includes(domain)) return info;
                 }
-            } catch (e) {
-                // Invalid URL
-            }
-
+            } catch (e) {}
             return null;
         }
 
-        // Update platform detection when URL changes
         urlInput.addEventListener('input', () => {
             const url = urlInput.value.trim();
             if (url) {
-                const platform = detectPlatform(url);
-                if (platform) {
-                    platformDetector.innerHTML = `<span style="color: ${platform.color};">${platform.icon} Plataforma detectada: ${platform.name}</span>`;
-                } else {
-                    platformDetector.innerHTML = '<span style="color: #888;">🌐 Plataforma no específica (intento con yt-dlp)</span>';
-                }
+                const p = detectPlatform(url);
+                platformDetector.innerHTML = p
+                    ? `<span style="color:${p.color}">${p.icon} Plataforma detectada: ${p.name}</span>`
+                    : '<span style="color:#888">🌐 Plataforma no específica (intento con yt-dlp)</span>';
             } else {
                 platformDetector.innerHTML = '';
             }
-
-            // Clear status when user types
             statusDiv.className = 'status';
         });
 
-        // Función para formatear bytes a KB/MB
+        // ─── Helpers ─────────────────────────────────────────────────
         function formatBytes(bytes) {
             if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB'];
+            const k = 1024, sizes = ['B', 'KB', 'MB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
-        // Función para formatear tiempo en minutos:segundos
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        function secsToMMSS(s) {
+            s = Math.max(0, Math.round(s));
+            const m = Math.floor(s / 60), ss = s % 60;
+            return `${m}:${ss.toString().padStart(2, '0')}`;
         }
 
-        // Agregar entrada al log
+        function mmssToSecs(str) {
+            const parts = str.trim().split(':');
+            if (parts.length === 2) {
+                const m = parseInt(parts[0], 10), s = parseFloat(parts[1]);
+                if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+            } else {
+                const v = parseFloat(str);
+                if (!isNaN(v)) return v;
+            }
+            return NaN;
+        }
+
+        // ─── Log entries ──────────────────────────────────────────────
         function addLogEntry(filename, info) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-
             const title = filename.replace('.m4a', '');
             entry.innerHTML = `
                 <strong>${title}</strong>
@@ -540,170 +777,147 @@
                     <span class="log-value">${info.bitrate || 'N/A'}</span>
                 </div>
             `;
-
             logsContainer.insertBefore(entry, logsContainer.firstChild);
-
-            // Mantener solo los últimos 10 logs
             while (logsContainer.children.length > 10) {
                 logsContainer.removeChild(logsContainer.lastChild);
             }
         }
 
+        // ─── Status / progress ────────────────────────────────────────
+        function showStatus(message, type) {
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status show ${type}`;
+        }
+
+        let progressInterval = null;
+        let currentProgress  = 0;
+
+        function startProgress(label = 'Procesando') {
+            currentProgress = 0;
+            showStatus(
+                `<span class="spinner"></span>${label}...` +
+                '<div class="progress-container">' +
+                    '<div class="progress-header">' +
+                        `<span class="progress-label">${label}</span>` +
+                        '<span class="progress-percent" id="progressPercent">0%</span>' +
+                    '</div>' +
+                    '<div class="progress-track">' +
+                        '<div class="progress-fill" id="progressFill"></div>' +
+                    '</div>' +
+                '</div>',
+                'loading'
+            );
+            progressInterval = setInterval(() => {
+                if (currentProgress < 88) {
+                    const step = currentProgress < 40 ? 3 : currentProgress < 70 ? 1.5 : 0.5;
+                    currentProgress = Math.min(88, currentProgress + step);
+                    updateProgressUI(currentProgress, false);
+                }
+            }, 250);
+        }
+
+        function updateProgressUI(pct, complete) {
+            const fill  = document.getElementById('progressFill');
+            const label = document.getElementById('progressPercent');
+            if (!fill || !label) return;
+            fill.style.width   = pct + '%';
+            label.textContent  = Math.round(pct) + '%';
+            if (complete) {
+                fill.classList.add('complete');
+                label.classList.add('complete');
+            }
+        }
+
+        function finishProgress(success) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+            if (success) {
+                currentProgress = 100;
+                updateProgressUI(100, true);
+            }
+        }
+
+        // ─── Trigger browser file-save from a blob ────────────────────
+        function saveBlobAs(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a   = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        // ─── MAIN FORM: extract audio, load player, show action btns ─
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const url = urlInput.value.trim();
-            if (!url) {
-                showStatus('Por favor ingresa una URL válida', 'error');
-                return;
-            }
+            if (!url) { showStatus('Por favor ingresa una URL válida', 'error'); return; }
+            try { new URL(url); } catch { showStatus('La URL no tiene un formato válido', 'error'); return; }
 
-            // Validate URL format
-            try {
-                new URL(url);
-            } catch (e) {
-                showStatus('La URL no tiene un formato válido', 'error');
-                return;
-            }
+            // save for later (trim endpoint)
+            currentUrl    = url;
+            currentTitle  = titleInput.value.trim();
+            currentArtist = artistInput.value.trim();
 
-            const platform = detectPlatform(url);
-            if (platform) {
-                console.log(`Intentando descargar desde ${platform.name}...`);
-            } else {
-                console.log('Plataforma no detectada, intentando con yt-dlp genérico...');
-            }
-
-            // Progress bar helpers
-            let progressInterval = null;
-            let currentProgress = 0;
-
-            function startProgress() {
-                currentProgress = 0;
-                showStatus(
-                    '<span class="spinner"></span>Descargando audio...' +
-                    '<div class="progress-container">' +
-                    '<div class="progress-header">' +
-                    '<span class="progress-label">Procesando</span>' +
-                    '<span class="progress-percent" id="progressPercent">0%</span>' +
-                    '</div>' +
-                    '<div class="progress-track">' +
-                    '<div class="progress-fill" id="progressFill"></div>' +
-                    '</div>' +
-                    '</div>',
-                    'loading'
-                );
-
-                // Simulate progress up to 88% while waiting for server response
-                progressInterval = setInterval(() => {
-                    if (currentProgress < 88) {
-                        // Faster at start, slower near the cap
-                        const step = currentProgress < 40 ? 3 : currentProgress < 70 ? 1.5 : 0.5;
-                        currentProgress = Math.min(88, currentProgress + step);
-                        updateProgressUI(currentProgress, false);
-                    }
-                }, 250);
-            }
-
-            function updateProgressUI(pct, complete) {
-                const fill = document.getElementById('progressFill');
-                const label = document.getElementById('progressPercent');
-                if (!fill || !label) return;
-                fill.style.width = pct + '%';
-                label.textContent = Math.round(pct) + '%';
-                if (complete) {
-                    fill.classList.add('complete');
-                    label.classList.add('complete');
-                }
-            }
-
-            function finishProgress(success) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-                if (success) {
-                    currentProgress = 100;
-                    updateProgressUI(100, true);
-                }
-            }
+            // hide previous results
+            actionButtons.style.display = 'none';
+            cutPanel.classList.remove('show');
+            audioPlayerContainer.style.display = 'none';
 
             try {
                 downloadBtn.disabled = true;
-                startProgress();
+                startProgress('Descargando audio');
 
-                // Construir la URL con parámetros
-                const params = new URLSearchParams();
-                params.append('url', url);
-                if (titleInput.value.trim()) {
-                    params.append('title', titleInput.value.trim());
-                }
-                if (artistInput.value.trim()) {
-                    params.append('artist', artistInput.value.trim());
-                }
+                const params = new URLSearchParams({ url });
+                if (currentTitle)  params.append('title',  currentTitle);
+                if (currentArtist) params.append('artist', currentArtist);
 
-                // Realizar la descarga
                 const response = await fetch(`/extract?${params.toString()}`);
-
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Error al descargar el archivo');
+                    throw new Error(await response.text() || 'Error al descargar el archivo');
                 }
 
-                // Obtener el nombre del archivo
-                const contentDisposition = response.headers.get('content-disposition');
-                let filename = 'audio.m4a';
-
-                if (contentDisposition) {
-                    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                    if (filenameMatch) {
-                        filename = filenameMatch[1];
-                    }
+                // read filename
+                const cd = response.headers.get('content-disposition');
+                currentFilename = 'audio.m4a';
+                if (cd) {
+                    const m = cd.match(/filename="?([^"]+)"?/);
+                    if (m) currentFilename = m[1];
                 }
 
-                // Obtener información personalizada del servidor
-                const duration = response.headers.get('x-duration') || '';
-                const bitrate = response.headers.get('x-bitrate') || '';
+                // read custom headers
+                const duration        = response.headers.get('x-duration') || '';
+                const durSecs         = response.headers.get('x-duration-seconds');
+                const bitrate         = response.headers.get('x-bitrate') || '';
+                totalDurationSec      = durSecs ? parseInt(durSecs, 10) : 0;
 
-                // Descargar el blob
-                const blob = await response.blob();
+                // get blob — don't auto-save
+                currentBlob = await response.blob();
 
-                // Completar barra al 100%
                 finishProgress(true);
+                await new Promise(r => setTimeout(r, 400));
 
-                // Pequeña pausa para que el usuario vea el 100%
-                await new Promise(r => setTimeout(r, 500));
-
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(downloadUrl);
-                document.body.removeChild(a);
-
-                // Agregar al log
-                addLogEntry(filename, {
-                    size: blob.size,
-                    duration: duration,
-                    bitrate: bitrate
-                });
-
-                // Cargar el audio en el reproductor
-                const audioUrl = window.URL.createObjectURL(blob);
+                // Load into player
+                const audioUrl = URL.createObjectURL(currentBlob);
                 audioPlayer.src = audioUrl;
                 audioPlayer.load();
 
-                // Mostrar información del audio
-                let infoText = `📁 ${filename}`;
+                let infoText = `📁 ${currentFilename}`;
                 if (duration) infoText += ` | ⏱️ ${duration}`;
-                if (bitrate) infoText += ` | 🎵 ${bitrate}`;
+                if (bitrate)  infoText += ` | 🎵 ${bitrate}`;
                 audioInfo.textContent = infoText;
 
-                // Mostrar el reproductor
                 audioPlayerContainer.style.display = 'block';
+                actionButtons.style.display = 'flex';
 
-                showStatus('✅ Descarga completada exitosamente', 'success');
+                // init sliders with real duration
+                initCutSliders(totalDurationSec || 300);
 
-                // Reset form fields except we don't want to hide the audio player
+                addLogEntry(currentFilename, { size: currentBlob.size, duration, bitrate });
+                showStatus('✅ Audio listo — elige una acción', 'success');
+
                 urlInput.value = '';
                 titleInput.value = '';
                 artistInput.value = '';
@@ -716,24 +930,181 @@
             }
         });
 
-        function showStatus(message, type) {
-            statusDiv.innerHTML = message;
-            statusDiv.className = `status show ${type}`;
-        }
-
-        // Limpiar mensaje de estado cuando el usuario escribe
-        urlInput.addEventListener('input', () => {
-            statusDiv.className = 'status';
+        // ─── Btn: download original blob ─────────────────────────────
+        btnSaveOriginal.addEventListener('click', () => {
+            if (!currentBlob) return;
+            saveBlobAs(currentBlob, currentFilename);
+            showStatus('✅ Descarga iniciada', 'success');
         });
 
-        // Manejar el reset del formulario (solo cuando se hace click en el botón)
-        document.querySelector('.btn-clear').addEventListener('click', () => {
+        // ─── Btn: toggle cut panel ────────────────────────────────────
+        btnEditCut.addEventListener('click', () => {
+            cutPanel.classList.toggle('show');
+            if (cutPanel.classList.contains('show')) {
+                btnEditCut.textContent = '✖ Cerrar editor';
+            } else {
+                btnEditCut.textContent = '✂️ Editar / Cortar';
+            }
+        });
+
+        // ─── CUT PANEL LOGIC ──────────────────────────────────────────
+        function initCutSliders(totalSec) {
+            rangeStart.max  = totalSec;
+            rangeEnd.max    = totalSec;
+            rangeStart.value = 0;
+            rangeEnd.value   = totalSec;
+            rangeStart.step  = 1;
+            rangeEnd.step    = 1;
+            updateCutUI();
+        }
+
+        function updateCutUI() {
+            const total = parseFloat(rangeEnd.max) || 1;
+            const s     = parseFloat(rangeStart.value);
+            const e     = parseFloat(rangeEnd.value);
+
+            // keep s < e with 1s gap
+            // Update text inputs
+            inputStart.value = secsToMMSS(s);
+            inputEnd.value   = secsToMMSS(e);
+
+            // Update duration badge
+            const dur = Math.max(0, e - s);
+            cutDurationLabel.textContent = secsToMMSS(dur);
+
+            // Update coloured fill strip
+            const leftPct  = (s / total) * 100;
+            const rightPct = (e / total) * 100;
+            rangeTrackFill.style.left  = leftPct  + '%';
+            rangeTrackFill.style.width = (rightPct - leftPct) + '%';
+
+            // Seek player to start point so user hears it
+            if (audioPlayer.readyState >= 1) {
+                // only update if not dragging end handle
+            }
+        }
+
+        rangeStart.addEventListener('input', () => {
+            if (parseFloat(rangeStart.value) >= parseFloat(rangeEnd.value) - 1) {
+                rangeStart.value = parseFloat(rangeEnd.value) - 1;
+            }
+            updateCutUI();
+            if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeStart.value);
+        });
+
+        rangeEnd.addEventListener('input', () => {
+            if (parseFloat(rangeEnd.value) <= parseFloat(rangeStart.value) + 1) {
+                rangeEnd.value = parseFloat(rangeStart.value) + 1;
+            }
+            updateCutUI();
+            if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeEnd.value);
+        });
+
+        // Allow typing time in MM:SS or raw seconds
+        inputStart.addEventListener('change', () => {
+            const s = mmssToSecs(inputStart.value);
+            if (!isNaN(s)) {
+                rangeStart.value = Math.max(0, Math.min(s, parseFloat(rangeEnd.value) - 1));
+                updateCutUI();
+                if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeStart.value);
+            } else {
+                inputStart.value = secsToMMSS(parseFloat(rangeStart.value));
+            }
+        });
+
+        inputEnd.addEventListener('change', () => {
+            const e = mmssToSecs(inputEnd.value);
+            const max = parseFloat(rangeEnd.max);
+            if (!isNaN(e)) {
+                rangeEnd.value = Math.min(max, Math.max(e, parseFloat(rangeStart.value) + 1));
+                updateCutUI();
+                if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeEnd.value);
+            } else {
+                inputEnd.value = secsToMMSS(parseFloat(rangeEnd.value));
+            }
+        });
+
+        // ─── Btn: cut & download ──────────────────────────────────────
+        btnCutDownload.addEventListener('click', async () => {
+            const startSec = parseFloat(rangeStart.value);
+            const endSec   = parseFloat(rangeEnd.value);
+
+            if (endSec <= startSec + 0.5) {
+                showStatus('❌ El rango de corte es demasiado corto', 'error');
+                return;
+            }
+            if (!currentUrl) {
+                showStatus('❌ No hay URL disponible para el recorte', 'error');
+                return;
+            }
+
+            btnCutDownload.disabled = true;
+            startProgress('Cortando audio');
+
+            try {
+                const params = new URLSearchParams({ url: currentUrl, start: startSec, end: endSec });
+                if (currentTitle)  params.append('title',  currentTitle);
+                if (currentArtist) params.append('artist', currentArtist);
+
+                const response = await fetch(`/trim?${params.toString()}`);
+                if (!response.ok) {
+                    throw new Error(await response.text() || 'Error al cortar el archivo');
+                }
+
+                const cd = response.headers.get('content-disposition');
+                let trimFilename = currentFilename.replace('.m4a', '_trim.m4a');
+                if (cd) {
+                    const m = cd.match(/filename="?([^"]+)"?/);
+                    if (m) trimFilename = m[1];
+                }
+
+                const duration = response.headers.get('x-duration') || '';
+                const bitrate  = response.headers.get('x-bitrate')  || '';
+
+                const trimBlob = await response.blob();
+
+                finishProgress(true);
+                await new Promise(r => setTimeout(r, 400));
+
+                saveBlobAs(trimBlob, trimFilename);
+
+                // also update player with trimmed audio
+                audioPlayer.src = URL.createObjectURL(trimBlob);
+                audioPlayer.load();
+
+                let infoText = `✂️ ${trimFilename}`;
+                if (duration) infoText += ` | ⏱️ ${duration}`;
+                if (bitrate)  infoText += ` | 🎵 ${bitrate}`;
+                audioInfo.textContent = infoText;
+
+                addLogEntry(trimFilename, { size: trimBlob.size, duration, bitrate });
+                showStatus('✅ Audio cortado y descargado', 'success');
+            } catch (error) {
+                finishProgress(false);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                btnCutDownload.disabled = false;
+            }
+        });
+
+        // ─── Clear ────────────────────────────────────────────────────
+        clearBtn.addEventListener('click', () => {
             audioPlayerContainer.style.display = 'none';
+            cutPanel.classList.remove('show');
+            actionButtons.style.display = 'none';
             audioPlayer.src = '';
             audioInfo.textContent = '';
             platformDetector.innerHTML = '';
+            btnEditCut.textContent = '✂️ Editar / Cortar';
+            currentBlob = null;
+            currentFilename = '';
+            currentUrl = '';
+            statusDiv.className = 'status';
             form.reset();
         });
+
+        // ─── Clear status on URL input ────────────────────────────────
+        urlInput.addEventListener('input', () => { statusDiv.className = 'status'; });
     </script>
 </body>
 

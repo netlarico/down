@@ -43,21 +43,23 @@ function getAudioInfo(filePath) {
 
     ffprobe.on("close", (code) => {
       if (code !== 0) {
-        resolve({ duration: null, bitrate: null });
+        resolve({ duration: null, durationSeconds: null, bitrate: null });
         return;
       }
 
       try {
         const lines = output.trim().split("\n");
         let duration = null;
+        let durationSeconds = null;
         let bitrate = null;
 
         for (const line of lines) {
           if (line.startsWith("duration=")) {
-            const durationSeconds = parseFloat(line.split("=")[1]);
-            if (!isNaN(durationSeconds)) {
-              const mins = Math.floor(durationSeconds / 60);
-              const secs = Math.floor(durationSeconds % 60);
+            const ds = parseFloat(line.split("=")[1]);
+            if (!isNaN(ds)) {
+              durationSeconds = ds;
+              const mins = Math.floor(ds / 60);
+              const secs = Math.floor(ds % 60);
               duration = `${mins}:${secs.toString().padStart(2, "0")}`;
             }
           }
@@ -69,22 +71,33 @@ function getAudioInfo(filePath) {
           }
         }
 
-        resolve({ duration, bitrate });
+        resolve({ duration, durationSeconds, bitrate });
       } catch (err) {
-        resolve({ duration: null, bitrate: null });
+        resolve({ duration: null, durationSeconds: null, bitrate: null });
       }
     });
 
     ffprobe.on("error", () => {
-      resolve({ duration: null, bitrate: null });
+      resolve({ duration: null, durationSeconds: null, bitrate: null });
     });
   });
 }
 
-// Función para ejecutar ffmpeg
-function runFfmpeg(inputFile, outputFile, metadata) {
+// Función para ejecutar ffmpeg (metadata + optional trim)
+function runFfmpeg(inputFile, outputFile, metadata, trim = null) {
   return new Promise((resolve, reject) => {
-    const args = ["-i", inputFile, "-vn"];
+    const args = [];
+
+    // Apply trim at input level for accuracy
+    if (trim && trim.start != null) {
+      args.push("-ss", String(trim.start));
+    }
+    args.push("-i", inputFile);
+    if (trim && trim.end != null) {
+      args.push("-to", String(trim.end - (trim.start || 0)));
+    }
+
+    args.push("-vn");
 
     if (metadata.title) {
       args.push("-metadata", `title=${metadata.title}`);
@@ -260,76 +273,43 @@ app.get("/extract", (req, res) => {
     console.log(`✅ Successfully downloaded from ${platform}`);
 
     try {
+      // Helper to stream a file and delete it after
+      function sendFile(filePath, deleteExtra = null) {
+        const stream = fs.createReadStream(filePath);
+        stream.pipe(res);
+        stream.on("end", () => {
+          fs.unlinkSync(filePath);
+          if (deleteExtra && fs.existsSync(deleteExtra)) fs.unlinkSync(deleteExtra);
+        });
+        stream.on("error", () => {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          if (deleteExtra && fs.existsSync(deleteExtra)) fs.unlinkSync(deleteExtra);
+        });
+      }
+
       // Si hay metadata, usar ffmpeg para agregarla
-      if (title || artist) {
+      const needsFfmpeg = title || artist;
+      const finalFile = needsFfmpeg ? outputWithMetadata : output;
+
+      if (needsFfmpeg) {
         await runFfmpeg(output, outputWithMetadata, { title, artist });
         fs.unlinkSync(output);
-
-        // Obtener información del archivo
-        const info = await getAudioInfo(outputWithMetadata);
-
-        res.setHeader("Content-Type", "audio/mp4");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${filename}"`,
-        );
-        if (info.duration) {
-          res.setHeader("X-Duration", info.duration);
-        }
-        if (info.bitrate) {
-          res.setHeader("X-Bitrate", info.bitrate);
-        }
-
-        const stream = fs.createReadStream(outputWithMetadata);
-        stream.pipe(res);
-
-        stream.on("end", () => {
-          fs.unlinkSync(outputWithMetadata);
-        });
-
-        stream.on("error", () => {
-          if (fs.existsSync(outputWithMetadata)) {
-            fs.unlinkSync(outputWithMetadata);
-          }
-        });
-      } else {
-        // Sin metadata, servir directamente
-        // Obtener información del archivo
-        const info = await getAudioInfo(output);
-
-        res.setHeader("Content-Type", "audio/mp4");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${filename}"`,
-        );
-        if (info.duration) {
-          res.setHeader("X-Duration", info.duration);
-        }
-        if (info.bitrate) {
-          res.setHeader("X-Bitrate", info.bitrate);
-        }
-
-        const stream = fs.createReadStream(output);
-        stream.pipe(res);
-
-        stream.on("end", () => {
-          fs.unlinkSync(output);
-        });
-
-        stream.on("error", () => {
-          if (fs.existsSync(output)) {
-            fs.unlinkSync(output);
-          }
-        });
       }
+
+      // Obtener información del archivo
+      const info = await getAudioInfo(finalFile);
+
+      res.setHeader("Content-Type", "audio/mp4");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      if (info.duration) res.setHeader("X-Duration", info.duration);
+      if (info.durationSeconds != null) res.setHeader("X-Duration-Seconds", String(Math.round(info.durationSeconds)));
+      if (info.bitrate) res.setHeader("X-Bitrate", info.bitrate);
+
+      sendFile(finalFile);
     } catch (err) {
       console.error("Error procesando archivo:", err);
-      if (fs.existsSync(output)) {
-        fs.unlinkSync(output);
-      }
-      if (fs.existsSync(outputWithMetadata)) {
-        fs.unlinkSync(outputWithMetadata);
-      }
+      if (fs.existsSync(output)) fs.unlinkSync(output);
+      if (fs.existsSync(outputWithMetadata)) fs.unlinkSync(outputWithMetadata);
       res.status(500).send("Error al procesar el archivo");
     }
   });
@@ -339,6 +319,103 @@ app.get("/extract", (req, res) => {
       fs.unlinkSync(output);
     }
     res.status(500).send("Error al procesar");
+  });
+});
+
+// ─── /trim endpoint ──────────────────────────────────────────────────────────
+// Query params: url, title?, artist?, start (seconds), end (seconds)
+app.get("/trim", (req, res) => {
+  const { url, title, artist, start, end } = req.query;
+
+  if (!url) return res.status(400).send("Missing URL");
+  if (start == null || end == null) return res.status(400).send("Missing start/end");
+
+  const startSec = parseFloat(start);
+  const endSec   = parseFloat(end);
+  if (isNaN(startSec) || isNaN(endSec) || endSec <= startSec) {
+    return res.status(400).send("Invalid start/end values");
+  }
+
+  const platform = detectPlatform(url);
+  console.log(`✂️  Trim request [${startSec}s – ${endSec}s] from ${platform}`);
+
+  const id = Date.now();
+  const rawFile  = `${id}_raw.m4a`;
+  const trimFile = `${id}_trim.m4a`;
+
+  let filename = `${id}_trim.m4a`;
+  if (title || artist) {
+    let name = "";
+    if (title) name += title.trim();
+    if (title && artist) name += " - ";
+    if (artist) name += artist.trim();
+    name = name.replace(/[\/\\?%*:|"<>]/g, "");
+    filename = `${name}_trim.m4a`;
+  }
+
+  // Same yt-dlp args as /extract
+  let ytdlpArgs = [
+    "-f", "bestaudio[ext=m4a]/bestaudio/best",
+    "--extract-audio", "--audio-format", "m4a",
+    "--audio-quality", "0",
+    "--no-playlist", "--quiet", "--no-warnings", "--no-check-certificate",
+    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "-o", rawFile, url,
+  ];
+
+  if (platform === 'YouTube') {
+    ytdlpArgs = [
+      "-f", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+      "--extract-audio", "--audio-format", "m4a",
+      "--audio-quality", "0",
+      "--no-playlist", "--quiet", "--no-warnings", "--no-check-certificate",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "--add-header", "Accept-Language: en-US,en;q=0.9",
+      "-o", rawFile, url,
+    ];
+  }
+
+  const ytdlp = spawn("yt-dlp", ytdlpArgs);
+  let ytError = "";
+  ytdlp.stderr.on("data", d => { ytError += d.toString(); });
+
+  ytdlp.on("close", async (code) => {
+    if (code !== 0) {
+      if (fs.existsSync(rawFile)) fs.unlinkSync(rawFile);
+      console.error(`yt-dlp trim error: ${ytError}`);
+      return res.status(400).send("Error descargando. Verifica que la URL sea válida.");
+    }
+    if (!fs.existsSync(rawFile)) {
+      return res.status(500).send("Error al procesar el archivo");
+    }
+
+    try {
+      await runFfmpeg(rawFile, trimFile, { title, artist }, { start: startSec, end: endSec });
+      fs.unlinkSync(rawFile);
+
+      const info = await getAudioInfo(trimFile);
+
+      res.setHeader("Content-Type", "audio/mp4");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      if (info.duration) res.setHeader("X-Duration", info.duration);
+      if (info.durationSeconds != null) res.setHeader("X-Duration-Seconds", String(Math.round(info.durationSeconds)));
+      if (info.bitrate) res.setHeader("X-Bitrate", info.bitrate);
+
+      const stream = fs.createReadStream(trimFile);
+      stream.pipe(res);
+      stream.on("end",   () => { if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile); });
+      stream.on("error", () => { if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile); });
+    } catch (err) {
+      console.error("Error al cortar audio:", err);
+      if (fs.existsSync(rawFile))  fs.unlinkSync(rawFile);
+      if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile);
+      res.status(500).send("Error al procesar el recorte");
+    }
+  });
+
+  ytdlp.on("error", () => {
+    if (fs.existsSync(rawFile)) fs.unlinkSync(rawFile);
+    res.status(500).send("Error al iniciar la descarga");
   });
 });
 

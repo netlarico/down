@@ -297,7 +297,7 @@
             left: -60%;
             width: 60%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
             animation: shimmer 1.4s ease-in-out infinite;
         }
 
@@ -311,8 +311,13 @@
         }
 
         @keyframes shimmer {
-            0%   { left: -60%; }
-            100% { left: 120%; }
+            0% {
+                left: -60%;
+            }
+
+            100% {
+                left: 120%;
+            }
         }
 
         .info-box {
@@ -338,7 +343,7 @@
         }
 
         .audio-player-container {
-            border-radius: 50px;
+            border-radius: 8px;
             background: #f6f6f7;
 
             padding: 20px;
@@ -411,6 +416,8 @@
                 </div>
             </form>
 
+            <div id="status" class="status"></div>
+
             <div id="audio-player-container" class="audio-player-container" style="display: none;">
                 <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">🎵 Reproductor de Audio</h3>
                 <audio id="audioPlayer" controls style="width: 100%; outline: none;">
@@ -419,7 +426,7 @@
                 <div id="audio-info" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
             </div>
 
-            <div id="status" class="status"></div>
+
         </div>
 
         <div class="logs-panel">
@@ -572,13 +579,13 @@
                 showStatus(
                     '<span class="spinner"></span>Descargando audio...' +
                     '<div class="progress-container">' +
-                        '<div class="progress-header">' +
-                            '<span class="progress-label">Procesando</span>' +
-                            '<span class="progress-percent" id="progressPercent">0%</span>' +
-                        '</div>' +
-                        '<div class="progress-track">' +
-                            '<div class="progress-fill" id="progressFill"></div>' +
-                        '</div>' +
+                    '<div class="progress-header">' +
+                    '<span class="progress-label">Procesando</span>' +
+                    '<span class="progress-percent" id="progressPercent">0%</span>' +
+                    '</div>' +
+                    '<div class="progress-track">' +
+                    '<div class="progress-fill" id="progressFill"></div>' +
+                    '</div>' +
                     '</div>',
                     'loading'
                 );

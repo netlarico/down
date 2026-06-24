@@ -94,13 +94,36 @@ function runFfmpeg(inputFile, outputFile, metadata, trim = null, isVideo = false
     }
     args.push("-i", inputFile);
     if (trim && trim.end != null) {
-      args.push("-to", String(trim.end - (trim.start || 0)));
+      args.push("-t", String(trim.end - (trim.start || 0)));
     }
 
-    if (isVideo) {
-      args.push("-c", "copy");
+    if (trim && trim.fade === "true") {
+      const dur = parseFloat(trim.end) - parseFloat(trim.start);
+      const fadeLen = Math.min(3.0, dur / 2);
+      const fadeOutStart = Math.max(0.0, dur - fadeLen);
+
+      if (isVideo) {
+        args.push(
+          "-vf", `setpts=PTS-STARTPTS,fade=t=in:st=0:d=${fadeLen},fade=t=out:st=${fadeOutStart}:d=${fadeLen}`,
+          "-af", `asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeLen},afade=t=out:st=${fadeOutStart}:d=${fadeLen}`,
+          "-vcodec", "libx264",
+          "-pix_fmt", "yuv420p",
+          "-preset", "superfast",
+          "-acodec", "aac"
+        );
+      } else {
+        args.push(
+          "-af", `asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeLen},afade=t=out:st=${fadeOutStart}:d=${fadeLen}`,
+          "-acodec", "libmp3lame",
+          "-q:a", "2"
+        );
+      }
     } else {
-      args.push("-vn", "-acodec", "copy");
+      if (isVideo) {
+        args.push("-c", "copy");
+      } else {
+        args.push("-vn", "-acodec", "copy");
+      }
     }
 
     if (metadata.title) {
@@ -323,7 +346,7 @@ app.get("/extract", (req, res) => {
 // ─── /trim endpoint ──────────────────────────────────────────────────────────
 // Query params: url, title?, artist?, start (seconds), end (seconds), format?
 app.get("/trim", (req, res) => {
-  const { url, title, artist, start, end, format } = req.query;
+  const { url, title, artist, start, end, format, fade } = req.query;
 
   if (!url) return res.status(400).send("Missing URL");
   if (start == null || end == null) return res.status(400).send("Missing start/end");
@@ -339,7 +362,7 @@ app.get("/trim", (req, res) => {
   const ext = isVideo ? "mp4" : "mp3";
 
   const platform = detectPlatform(url);
-  console.log(`✂️  Trim request (${formatType.toUpperCase()}) [${startSec}s – ${endSec}s] from ${platform}`);
+  console.log(`✂️  Trim request [${startSec}s – ${endSec}s] from ${platform}`);
 
   const id = Date.now();
   const rawFile  = `${id}_raw.${ext}`;
@@ -404,7 +427,7 @@ app.get("/trim", (req, res) => {
     }
 
     try {
-      await runFfmpeg(rawFile, trimFile, { title, artist }, { start: startSec, end: endSec }, isVideo);
+      await runFfmpeg(rawFile, trimFile, { title, artist }, { start: startSec, end: endSec, fade }, isVideo);
       fs.unlinkSync(rawFile);
 
       const info = await getAudioInfo(trimFile);

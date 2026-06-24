@@ -7,6 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="googlebot" content="noindex, nofollow">
     <title>Downloader media</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -27,9 +28,7 @@
 
         .wrapper {
             display: flex;
-            gap: 20px;
-            width: 100%;
-            max-width: 1200px;
+            gap: 20px; 
             align-items: flex-start;
         }
 
@@ -601,6 +600,59 @@
             .button-group { flex-direction: column; }
             button { width: 100%; }
         }
+
+        /* ─── UPLOAD ZONE ───────────────────────────────────────────── */
+        .upload-zone {
+            border: 2px dashed #667eea;
+            border-radius: 14px;
+            padding: 25px 20px;
+            text-align: center;
+            background: #fbfbfe;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .upload-zone:hover {
+            background: rgba(102, 126, 234, 0.04);
+            border-color: #764ba2;
+            transform: translateY(-1px);
+        }
+
+        .upload-zone.dragover {
+            background: rgba(40, 167, 69, 0.05);
+            border-color: #28a745;
+        }
+
+        .upload-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 2px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .upload-hint {
+            font-size: 11px;
+            color: #a0aec0;
+        }
     </style>
 </head>
 
@@ -613,7 +665,7 @@
 
             <form id="downloadForm">
                 <div class="form-group">
-                    <label for="videoUrl">URL del Video
+                    <label for="videoUrl">URL del Media
                         <span id="platform-detector" style="font-size: 12px; color: #666;"></span>
                     </label>
                     <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..."
@@ -655,6 +707,19 @@
                     </button>
                 </div>
             </form>
+
+            <!-- Drop-zone for local audio file editing -->
+            <div class="upload-section" style="border-top: 1px dashed #e2e8f0; padding-top: 25px; margin-top: 25px; margin-bottom: 5px;">
+                <label style="font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 12px; display: block;">📂 O edita un archivo de audio local (sin subir al servidor)</label>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="localAudioFile" accept="audio/*" style="display: none;" />
+                    <div class="upload-content">
+                        <span class="upload-icon">🎵</span>
+                        <span class="upload-text">Arrastra o haz clic para cargar un audio</span>
+                        <span class="upload-hint">Soporta MP3, WAV, M4A, etc.</span>
+                    </div>
+                </div>
+            </div>
 
             <div id="status" class="status"></div>
 
@@ -756,6 +821,8 @@
         const optionMp3             = document.getElementById('optionMp3');
         const optionMp4             = document.getElementById('optionMp4');
         const applyFadeCheckbox    = document.getElementById('applyFade');
+        const uploadZone            = document.getElementById('uploadZone');
+        const localAudioFile        = document.getElementById('localAudioFile');
 
         // ─── App state ───────────────────────────────────────────────
         let currentBlob      = null;   // blob of the full downloaded media
@@ -766,6 +833,11 @@
         let currentFormat    = 'mp3';  // mp3 or mp4
         let totalDurationSec = 0;      // total duration in seconds (from server header)
         let activePlayer     = audioPlayer; // active player pointer
+
+        // Local file editing state
+        let isLocalFile      = false;
+        let decodedAudioBuffer = null;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         // Format radio options interactive handling
         const formatOptions = document.querySelectorAll('.format-option');
@@ -806,6 +878,198 @@
                 }
             } catch (e) {}
             return null;
+        }
+
+        // ─── Client-side audio encoding helpers ─────────────────────────
+        function bufferToWav(buffer, optStartOffset = 0, optNumSamples = null) {
+            let numOfChan = buffer.numberOfChannels,
+                length = optNumSamples || buffer.length,
+                sampleRate = buffer.sampleRate,
+                channels = [],
+                i, sample,
+                offset = 0;
+
+            let bufferLength = 44 + length * 2 * numOfChan;
+            let arrayBuffer = new ArrayBuffer(bufferLength);
+            let view = new DataView(arrayBuffer);
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, 36 + length * 2 * numOfChan, true); offset += 4;
+            writeString(view, offset, 'WAVE'); offset += 4;
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4;
+            view.setUint16(offset, 1, true); offset += 2;
+            view.setUint16(offset, numOfChan, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, sampleRate * numOfChan * 2, true); offset += 4;
+            view.setUint16(offset, numOfChan * 2, true); offset += 2;
+            view.setUint16(offset, 16, true); offset += 2;
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, length * 2 * numOfChan, true); offset += 4;
+
+            for (i = 0; i < numOfChan; i++) {
+                channels.push(buffer.getChannelData(i));
+            }
+
+            const startOffset = optStartOffset;
+            for (i = 0; i < length; i++) {
+                for (let channel = 0; channel < numOfChan; channel++) {
+                    sample = channels[channel][startOffset + i];
+                    sample = Math.max(-1, Math.min(1, sample));
+                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(offset, sample, true);
+                    offset += 2;
+                }
+            }
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function bufferToMp3(audioBuffer) {
+            if (typeof lamejs === 'undefined') {
+                throw new Error("Librería de codificación MP3 (lamejs) no cargada.");
+            }
+            const channels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128); // 128 kbps
+            const mp3Data = [];
+            const sampleBlockSize = 1152;
+
+            if (channels === 2) {
+                const left = audioBuffer.getChannelData(0);
+                const right = audioBuffer.getChannelData(1);
+                
+                const leftInt = new Int16Array(left.length);
+                const rightInt = new Int16Array(right.length);
+                for (let i = 0; i < left.length; i++) {
+                    leftInt[i] = Math.min(32767, Math.max(-32768, left[i] * 32768));
+                    rightInt[i] = Math.min(32767, Math.max(-32768, right[i] * 32768));
+                }
+                
+                for (let i = 0; i < leftInt.length; i += sampleBlockSize) {
+                    const leftChunk = leftInt.subarray(i, i + sampleBlockSize);
+                    const rightChunk = rightInt.subarray(i, i + sampleBlockSize);
+                    const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+                    if (mp3buf.length > 0) {
+                        mp3Data.push(mp3buf);
+                    }
+                }
+            } else {
+                const mono = audioBuffer.getChannelData(0);
+                const monoInt = new Int16Array(mono.length);
+                for (let i = 0; i < mono.length; i++) {
+                    monoInt[i] = Math.min(32767, Math.max(-32768, mono[i] * 32768));
+                }
+                
+                for (let i = 0; i < monoInt.length; i += sampleBlockSize) {
+                    const monoChunk = monoInt.subarray(i, i + sampleBlockSize);
+                    const mp3buf = mp3encoder.encodeBuffer(monoChunk);
+                    if (mp3buf.length > 0) {
+                        mp3Data.push(mp3buf);
+                    }
+                }
+            }
+            
+            const mp3buf = mp3encoder.flush();
+            if (mp3buf.length > 0) {
+                mp3Data.push(mp3buf);
+            }
+            
+            return new Blob(mp3Data, { type: 'audio/mp3' });
+        }
+
+        // ─── Local file upload handling ────────────────────────────────
+        uploadZone.addEventListener('click', () => {
+            localAudioFile.click();
+        });
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type.startsWith('audio/')) {
+                    localAudioFile.files = e.dataTransfer.files;
+                    processLocalAudioFile(file);
+                } else {
+                    showStatus('❌ Por favor, arrastra un archivo de audio válido.', 'error');
+                }
+            }
+        });
+
+        localAudioFile.addEventListener('change', () => {
+            if (localAudioFile.files.length > 0) {
+                processLocalAudioFile(localAudioFile.files[0]);
+            }
+        });
+
+        async function processLocalAudioFile(file) {
+            actionButtons.style.display = 'none';
+            cutPanel.classList.remove('show');
+            btnEditCut.textContent = '✂️ Editar / Cortar';
+            audioPlayerContainer.style.display = 'none';
+
+            try {
+                showStatus('<span class="spinner"></span>Leyendo y decodificando audio local...', 'loading');
+                
+                const reader = new FileReader();
+                const arrayBuffer = await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Error leyendo archivo local.'));
+                    reader.readAsArrayBuffer(file);
+                });
+
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+
+                decodedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                isLocalFile = true;
+                currentFilename = file.name;
+                totalDurationSec = decodedAudioBuffer.duration;
+                currentBlob = file;
+                currentUrl = '';
+                currentFormat = 'mp3';
+
+                const fileUrl = URL.createObjectURL(file);
+                audioPlayer.style.display = 'none';
+                videoPlayer.style.display = 'none';
+                videoPlayer.src = '';
+                
+                playerTitle.innerHTML = '🎵 Reproductor de Audio (Local)';
+                audioPlayer.src = fileUrl;
+                audioPlayer.style.display = 'block';
+                audioPlayer.load();
+                activePlayer = audioPlayer;
+
+                audioInfo.textContent = `📂 ${file.name} | ⏱️ ${secsToMMSS(totalDurationSec)} | ⚡ Local`;
+
+                audioPlayerContainer.style.display = 'block';
+                actionButtons.style.display = 'flex';
+
+                initCutSliders(totalDurationSec);
+                
+                showStatus('✅ Audio local cargado correctamente — Elige una acción', 'success');
+            } catch (err) {
+                console.error("Error decoding local audio:", err);
+                showStatus(`❌ Error al decodificar: ${err.message}. El archivo podría estar corrupto o no ser soportado.`, 'error');
+            }
         }
 
         urlInput.addEventListener('input', () => {
@@ -1141,6 +1405,98 @@
                 showStatus('❌ El rango de corte es demasiado corto', 'error');
                 return;
             }
+
+            if (isLocalFile) {
+                if (!decodedAudioBuffer) {
+                    showStatus('❌ No hay audio decodificado disponible', 'error');
+                    return;
+                }
+                btnCutDownload.disabled = true;
+                startProgress('Cortando audio localmente');
+
+                await new Promise(r => setTimeout(r, 100));
+
+                try {
+                    const sampleRate = decodedAudioBuffer.sampleRate;
+                    const startSample = Math.floor(startSec * sampleRate);
+                    const endSample = Math.floor(endSec * sampleRate);
+                    const trimmedLength = endSample - startSample;
+
+                    const trimmedBuffer = audioCtx.createBuffer(
+                        decodedAudioBuffer.numberOfChannels,
+                        trimmedLength,
+                        sampleRate
+                    );
+
+                    const fadeEnabled = applyFadeCheckbox && applyFadeCheckbox.checked;
+                    const fadeDuration = 3.0; // 3 seconds
+                    const fadeSamples = Math.min(Math.floor(fadeDuration * sampleRate), Math.floor(trimmedLength / 2));
+
+                    for (let channel = 0; channel < decodedAudioBuffer.numberOfChannels; channel++) {
+                        const channelData = decodedAudioBuffer.getChannelData(channel);
+                        const trimmedChannelData = trimmedBuffer.getChannelData(channel);
+
+                        for (let i = 0; i < trimmedLength; i++) {
+                            trimmedChannelData[i] = channelData[startSample + i];
+                        }
+
+                        if (fadeEnabled && trimmedLength > 0) {
+                            for (let i = 0; i < fadeSamples; i++) {
+                                trimmedChannelData[i] *= (i / fadeSamples);
+                            }
+                            for (let i = 0; i < fadeSamples; i++) {
+                                trimmedChannelData[trimmedLength - 1 - i] *= (i / fadeSamples);
+                            }
+                        }
+                    }
+
+                    updateProgressUI(50, false);
+                    await new Promise(r => setTimeout(r, 100));
+
+                    let outputBlob;
+                    let fileExt = '.mp3';
+                    
+                    if (typeof lamejs !== 'undefined') {
+                        try {
+                            outputBlob = bufferToMp3(trimmedBuffer);
+                        } catch (mp3Err) {
+                            console.warn("Error coding to MP3, falling back to WAV:", mp3Err);
+                            outputBlob = bufferToWav(trimmedBuffer);
+                            fileExt = '.wav';
+                        }
+                    } else {
+                        outputBlob = bufferToWav(trimmedBuffer);
+                        fileExt = '.wav';
+                    }
+
+                    finishProgress(true);
+                    await new Promise(r => setTimeout(r, 400));
+
+                    const origName = currentFilename;
+                    const dotIndex = origName.lastIndexOf('.');
+                    const baseName = dotIndex !== -1 ? origName.substring(0, dotIndex) : origName;
+                    const trimFilename = `${baseName}_trim${fileExt}`;
+
+                    saveBlobAs(outputBlob, trimFilename);
+
+                    const trimUrl = URL.createObjectURL(outputBlob);
+                    activePlayer.src = trimUrl;
+                    activePlayer.load();
+
+                    const durText = secsToMMSS(trimmedLength / sampleRate);
+                    audioInfo.textContent = `🎵 ${trimFilename} | ⏱️ ${durText} | ⚡ Cortado localmente`;
+
+                    addLogEntry(trimFilename, { size: outputBlob.size, duration: durText, bitrate: fileExt === '.mp3' ? '128 kbps' : 'Lossless PCM' }, false);
+                    showStatus('✅ Audio cortado y descargado correctamente', 'success');
+                } catch (error) {
+                    finishProgress(false);
+                    showStatus(`❌ Error al cortar el archivo: ${error.message}`, 'error');
+                } finally {
+                    btnCutDownload.disabled = false;
+                }
+                return;
+            }
+
             if (!currentUrl) {
                 showStatus('❌ No hay URL disponible para el recorte', 'error');
                 return;
@@ -1222,6 +1578,10 @@
             currentUrl = '';
             currentFormat = 'mp3';
             activePlayer = audioPlayer;
+
+            isLocalFile = false;
+            decodedAudioBuffer = null;
+            if (localAudioFile) localAudioFile.value = '';
 
             // reset format selector active state
             formatOptions.forEach(o => o.classList.remove('active'));

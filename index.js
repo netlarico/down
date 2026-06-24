@@ -84,7 +84,7 @@ function getAudioInfo(filePath) {
 }
 
 // Función para ejecutar ffmpeg (metadata + optional trim)
-function runFfmpeg(inputFile, outputFile, metadata, trim = null) {
+function runFfmpeg(inputFile, outputFile, metadata, trim = null, isVideo = false) {
   return new Promise((resolve, reject) => {
     const args = [];
 
@@ -97,7 +97,11 @@ function runFfmpeg(inputFile, outputFile, metadata, trim = null) {
       args.push("-to", String(trim.end - (trim.start || 0)));
     }
 
-    args.push("-vn");
+    if (isVideo) {
+      args.push("-c", "copy");
+    } else {
+      args.push("-vn", "-acodec", "copy");
+    }
 
     if (metadata.title) {
       args.push("-metadata", `title=${metadata.title}`);
@@ -106,7 +110,7 @@ function runFfmpeg(inputFile, outputFile, metadata, trim = null) {
       args.push("-metadata", `artist=${metadata.artist}`);
     }
 
-    args.push("-acodec", "copy", "-y", outputFile);
+    args.push("-y", outputFile);
 
     const ffmpeg = spawn("ffmpeg", args);
     let error = "";
@@ -161,22 +165,26 @@ function detectPlatform(url) {
 }
 
 app.get("/extract", (req, res) => {
-  const { url, title, artist } = req.query;
+  const { url, title, artist, format } = req.query;
 
   if (!url) {
     return res.status(400).send("Missing URL");
   }
 
+  const formatType = format || "mp3";
+  const isVideo = formatType === "mp4";
+  const ext = isVideo ? "mp4" : "mp3";
+
   const platform = detectPlatform(url);
-  console.log(`🎵 Download request from platform: ${platform}`);
+  console.log(`📥 Download request (${formatType.toUpperCase()}) from platform: ${platform}`);
   console.log(`🔗 URL: ${url}`);
 
   const id = Date.now();
-  const output = `${id}.m4a`;
-  const outputWithMetadata = `${id}_meta.m4a`;
+  const output = `${id}.${ext}`;
+  const outputWithMetadata = `${id}_meta.${ext}`;
 
   // Generar nombre del archivo personalizado
-  let filename = `${id}.m4a`;
+  let filename = `${id}.${ext}`;
   if (title || artist) {
     let name = "";
     if (title) name += title.trim();
@@ -185,51 +193,41 @@ app.get("/extract", (req, res) => {
 
     // Limpiar caracteres inválidos para nombres de archivo
     name = name.replace(/[/\\?%*:|"<>]/g, "");
-    filename = `${name}.m4a`;
+    filename = `${name}.${ext}`;
   }
 
   // Build yt-dlp command with platform-specific optimizations
-  let ytdlpArgs = [
-    "-f",
-    "bestaudio[ext=m4a]/bestaudio/best",
-    "--extract-audio",
-    "--audio-format",
-    "m4a",
-    "--audio-quality",
-    "0",
-    "--no-playlist",
-    "--quiet",
-    "--no-warnings",
-    "--no-check-certificate",
-    "--user-agent",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "-o",
-    output,
-    url,
-  ];
-
-  // Add YouTube-specific options
-  if (platform === 'YouTube') {
+  let ytdlpArgs = [];
+  if (isVideo) {
     ytdlpArgs = [
-      "-f",
-      "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-      "--extract-audio",
-      "--audio-format",
-      "m4a",
-      "--audio-quality",
-      "0",
+      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+      "--merge-output-format", "mp4",
       "--no-playlist",
       "--quiet",
       "--no-warnings",
       "--no-check-certificate",
-      "--user-agent",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "--add-header",
-      "Accept-Language: en-US,en;q=0.9",
-      "-o",
-      output,
-      url,
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     ];
+    if (platform === 'YouTube') {
+      ytdlpArgs.push("--add-header", "Accept-Language: en-US,en;q=0.9");
+    }
+    ytdlpArgs.push("-o", output, url);
+  } else {
+    ytdlpArgs = [
+      "-f", "bestaudio/best",
+      "--extract-audio",
+      "--audio-format", "mp3",
+      "--audio-quality", "0",
+      "--no-playlist",
+      "--quiet",
+      "--no-warnings",
+      "--no-check-certificate",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    ];
+    if (platform === 'YouTube') {
+      ytdlpArgs.push("--add-header", "Accept-Language: en-US,en;q=0.9");
+    }
+    ytdlpArgs.push("-o", output, url);
   }
 
   const ytdlp = spawn("yt-dlp", ytdlpArgs);
@@ -292,14 +290,14 @@ app.get("/extract", (req, res) => {
       const finalFile = needsFfmpeg ? outputWithMetadata : output;
 
       if (needsFfmpeg) {
-        await runFfmpeg(output, outputWithMetadata, { title, artist });
+        await runFfmpeg(output, outputWithMetadata, { title, artist }, null, isVideo);
         fs.unlinkSync(output);
       }
 
       // Obtener información del archivo
       const info = await getAudioInfo(finalFile);
 
-      res.setHeader("Content-Type", "audio/mp4");
+      res.setHeader("Content-Type", isVideo ? "video/mp4" : "audio/mpeg");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       if (info.duration) res.setHeader("X-Duration", info.duration);
       if (info.durationSeconds != null) res.setHeader("X-Duration-Seconds", String(Math.round(info.durationSeconds)));
@@ -323,9 +321,9 @@ app.get("/extract", (req, res) => {
 });
 
 // ─── /trim endpoint ──────────────────────────────────────────────────────────
-// Query params: url, title?, artist?, start (seconds), end (seconds)
+// Query params: url, title?, artist?, start (seconds), end (seconds), format?
 app.get("/trim", (req, res) => {
-  const { url, title, artist, start, end } = req.query;
+  const { url, title, artist, start, end, format } = req.query;
 
   if (!url) return res.status(400).send("Missing URL");
   if (start == null || end == null) return res.status(400).send("Missing start/end");
@@ -336,43 +334,59 @@ app.get("/trim", (req, res) => {
     return res.status(400).send("Invalid start/end values");
   }
 
+  const formatType = format || "mp3";
+  const isVideo = formatType === "mp4";
+  const ext = isVideo ? "mp4" : "mp3";
+
   const platform = detectPlatform(url);
-  console.log(`✂️  Trim request [${startSec}s – ${endSec}s] from ${platform}`);
+  console.log(`✂️  Trim request (${formatType.toUpperCase()}) [${startSec}s – ${endSec}s] from ${platform}`);
 
   const id = Date.now();
-  const rawFile  = `${id}_raw.m4a`;
-  const trimFile = `${id}_trim.m4a`;
+  const rawFile  = `${id}_raw.${ext}`;
+  const trimFile = `${id}_trim.${ext}`;
 
-  let filename = `${id}_trim.m4a`;
+  let filename = `${id}_trim.${ext}`;
   if (title || artist) {
     let name = "";
     if (title) name += title.trim();
     if (title && artist) name += " - ";
     if (artist) name += artist.trim();
     name = name.replace(/[\/\\?%*:|"<>]/g, "");
-    filename = `${name}_trim.m4a`;
+    filename = `${name}_trim.${ext}`;
   }
 
-  // Same yt-dlp args as /extract
-  let ytdlpArgs = [
-    "-f", "bestaudio[ext=m4a]/bestaudio/best",
-    "--extract-audio", "--audio-format", "m4a",
-    "--audio-quality", "0",
-    "--no-playlist", "--quiet", "--no-warnings", "--no-check-certificate",
-    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "-o", rawFile, url,
-  ];
-
-  if (platform === 'YouTube') {
+  // Build yt-dlp command with platform-specific optimizations
+  let ytdlpArgs = [];
+  if (isVideo) {
     ytdlpArgs = [
-      "-f", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-      "--extract-audio", "--audio-format", "m4a",
-      "--audio-quality", "0",
-      "--no-playlist", "--quiet", "--no-warnings", "--no-check-certificate",
+      "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+      "--merge-output-format", "mp4",
+      "--no-playlist",
+      "--quiet",
+      "--no-warnings",
+      "--no-check-certificate",
       "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "--add-header", "Accept-Language: en-US,en;q=0.9",
-      "-o", rawFile, url,
     ];
+    if (platform === 'YouTube') {
+      ytdlpArgs.push("--add-header", "Accept-Language: en-US,en;q=0.9");
+    }
+    ytdlpArgs.push("-o", rawFile, url);
+  } else {
+    ytdlpArgs = [
+      "-f", "bestaudio/best",
+      "--extract-audio",
+      "--audio-format", "mp3",
+      "--audio-quality", "0",
+      "--no-playlist",
+      "--quiet",
+      "--no-warnings",
+      "--no-check-certificate",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    ];
+    if (platform === 'YouTube') {
+      ytdlpArgs.push("--add-header", "Accept-Language: en-US,en;q=0.9");
+    }
+    ytdlpArgs.push("-o", rawFile, url);
   }
 
   const ytdlp = spawn("yt-dlp", ytdlpArgs);
@@ -390,12 +404,12 @@ app.get("/trim", (req, res) => {
     }
 
     try {
-      await runFfmpeg(rawFile, trimFile, { title, artist }, { start: startSec, end: endSec });
+      await runFfmpeg(rawFile, trimFile, { title, artist }, { start: startSec, end: endSec }, isVideo);
       fs.unlinkSync(rawFile);
 
       const info = await getAudioInfo(trimFile);
 
-      res.setHeader("Content-Type", "audio/mp4");
+      res.setHeader("Content-Type", isVideo ? "video/mp4" : "audio/mpeg");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       if (info.duration) res.setHeader("X-Duration", info.duration);
       if (info.durationSeconds != null) res.setHeader("X-Duration-Seconds", String(Math.round(info.durationSeconds)));
@@ -406,7 +420,7 @@ app.get("/trim", (req, res) => {
       stream.on("end",   () => { if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile); });
       stream.on("error", () => { if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile); });
     } catch (err) {
-      console.error("Error al cortar audio:", err);
+      console.error("Error al cortar media:", err);
       if (fs.existsSync(rawFile))  fs.unlinkSync(rawFile);
       if (fs.existsSync(trimFile)) fs.unlinkSync(trimFile);
       res.status(500).send("Error al procesar el recorte");

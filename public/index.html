@@ -552,6 +552,44 @@
             color: #555;
         }
 
+        .format-selector {
+            display: flex;
+            gap: 12px;
+            margin-top: 5px;
+        }
+
+        .format-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .format-option input[type="radio"] {
+            display: none;
+        }
+
+        .format-option:hover {
+            background: #f1f3f5;
+            border-color: #cbd5e1;
+        }
+
+        .format-option.active {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+            color: #4c51bf;
+        }
+
         @media (max-width: 900px) {
             .wrapper { flex-direction: column; }
             .logs-panel { flex: 1; width: 100%; max-height: 680px; }
@@ -592,6 +630,22 @@
                     <input type="text" id="artist" name="artist" placeholder="Ej: Artista o Banda" />
                 </div>
 
+                <div class="form-group">
+                    <label>Formato de Descarga</label>
+                    <div class="format-selector">
+                        <label class="format-option active" id="optionMp3">
+                            <input type="radio" name="format" value="mp3" checked>
+                            <span class="format-icon">🎵</span>
+                            <span class="format-text">Audio (MP3)</span>
+                        </label>
+                        <label class="format-option" id="optionMp4">
+                            <input type="radio" name="format" value="mp4">
+                            <span class="format-icon">🎥</span>
+                            <span class="format-text">Video (MP4)</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="button-group">
                     <button type="submit" class="btn-download" id="downloadBtn">
                         ⬇️ Procesar Audio
@@ -604,12 +658,18 @@
 
             <div id="status" class="status"></div>
 
-            <!-- Audio player -->
+            <!-- Media player -->
             <div id="audio-player-container" class="audio-player-container" style="display: none;">
-                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">🎵 Reproductor de Audio</h3>
-                <audio id="audioPlayer" controls style="width: 100%; outline: none;">
+                <h3 id="player-title" style="margin-bottom: 15px; color: #333; font-size: 16px;">🎵 Reproductor de Audio</h3>
+                
+                <audio id="audioPlayer" controls style="width: 100%; outline: none; display: none;">
                     Tu navegador no soporta el elemento de audio.
                 </audio>
+
+                <video id="videoPlayer" controls style="width: 100%; max-height: 360px; border-radius: 8px; outline: none; background: #000; display: none;">
+                    Tu navegador no soporta el elemento de video.
+                </video>
+
                 <div id="audio-info" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
 
                 <!-- Action buttons: download as-is / edit -->
@@ -672,6 +732,8 @@
         const platformDetector      = document.getElementById('platform-detector');
         const audioPlayerContainer  = document.getElementById('audio-player-container');
         const audioPlayer           = document.getElementById('audioPlayer');
+        const videoPlayer           = document.getElementById('videoPlayer');
+        const playerTitle           = document.getElementById('player-title');
         const audioInfo             = document.getElementById('audio-info');
         const actionButtons         = document.getElementById('actionButtons');
         const btnSaveOriginal       = document.getElementById('btnSaveOriginal');
@@ -684,14 +746,34 @@
         const inputEnd              = document.getElementById('inputEnd');
         const cutDurationLabel      = document.getElementById('cutDurationLabel');
         const btnCutDownload        = document.getElementById('btnCutDownload');
+        const optionMp3             = document.getElementById('optionMp3');
+        const optionMp4             = document.getElementById('optionMp4');
 
         // ─── App state ───────────────────────────────────────────────
-        let currentBlob      = null;   // blob of the full downloaded audio
+        let currentBlob      = null;   // blob of the full downloaded media
         let currentFilename  = '';
         let currentUrl       = '';
         let currentTitle     = '';
         let currentArtist    = '';
+        let currentFormat    = 'mp3';  // mp3 or mp4
         let totalDurationSec = 0;      // total duration in seconds (from server header)
+        let activePlayer     = audioPlayer; // active player pointer
+
+        // Format radio options interactive handling
+        const formatOptions = document.querySelectorAll('.format-option');
+        formatOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                formatOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                const radio = opt.querySelector('input[type="radio"]');
+                radio.checked = true;
+                if (radio.value === 'mp4') {
+                    downloadBtn.innerHTML = '⬇️ Procesar Video';
+                } else {
+                    downloadBtn.innerHTML = '⬇️ Procesar Audio';
+                }
+            });
+        });
 
         // ─── Platform detection ──────────────────────────────────────
         function detectPlatform(url) {
@@ -758,12 +840,14 @@
         }
 
         // ─── Log entries ──────────────────────────────────────────────
-        function addLogEntry(filename, info) {
+        function addLogEntry(filename, info, isVideo = false) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            const title = filename.replace('.m4a', '');
+            const title = filename.replace(/\.(mp3|mp4|m4a)$/, '');
+            const typeLabel = isVideo ? 'Video' : 'Audio';
+            const typeColor = isVideo ? '#e53e3e' : '#3182ce';
             entry.innerHTML = `
-                <strong>${title}</strong>
+                <strong>${title} <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; color: white; background: ${typeColor}; margin-left: 5px;">${typeLabel}</span></strong>
                 <div class="log-info">
                     <span class="log-label">Tamaño:</span>
                     <span class="log-value">${formatBytes(info.size)}</span>
@@ -848,13 +932,17 @@
             document.body.removeChild(a);
         }
 
-        // ─── MAIN FORM: extract audio, load player, show action btns ─
+        // ─── MAIN FORM: extract audio/video, load player, show action btns ─
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const url = urlInput.value.trim();
             if (!url) { showStatus('Por favor ingresa una URL válida', 'error'); return; }
             try { new URL(url); } catch { showStatus('La URL no tiene un formato válido', 'error'); return; }
+
+            const selectedFormat = document.querySelector('input[name="format"]:checked').value;
+            currentFormat = selectedFormat;
+            const isVideo = currentFormat === 'mp4';
 
             // save for later (trim endpoint)
             currentUrl    = url;
@@ -868,9 +956,9 @@
 
             try {
                 downloadBtn.disabled = true;
-                startProgress('Descargando audio');
+                startProgress(isVideo ? 'Descargando video' : 'Descargando audio');
 
-                const params = new URLSearchParams({ url });
+                const params = new URLSearchParams({ url, format: currentFormat });
                 if (currentTitle)  params.append('title',  currentTitle);
                 if (currentArtist) params.append('artist', currentArtist);
 
@@ -881,7 +969,7 @@
 
                 // read filename
                 const cd = response.headers.get('content-disposition');
-                currentFilename = 'audio.m4a';
+                currentFilename = isVideo ? 'video.mp4' : 'audio.mp3';
                 if (cd) {
                     const m = cd.match(/filename="?([^"]+)"?/);
                     if (m) currentFilename = m[1];
@@ -900,13 +988,30 @@
                 await new Promise(r => setTimeout(r, 400));
 
                 // Load into player
-                const audioUrl = URL.createObjectURL(currentBlob);
-                audioPlayer.src = audioUrl;
-                audioPlayer.load();
+                const mediaUrl = URL.createObjectURL(currentBlob);
+                
+                audioPlayer.style.display = 'none';
+                videoPlayer.style.display = 'none';
+                audioPlayer.src = '';
+                videoPlayer.src = '';
 
-                let infoText = `📁 ${currentFilename}`;
+                if (isVideo) {
+                    playerTitle.innerHTML = '🎥 Reproductor de Video';
+                    videoPlayer.src = mediaUrl;
+                    videoPlayer.style.display = 'block';
+                    videoPlayer.load();
+                    activePlayer = videoPlayer;
+                } else {
+                    playerTitle.innerHTML = '🎵 Reproductor de Audio';
+                    audioPlayer.src = mediaUrl;
+                    audioPlayer.style.display = 'block';
+                    audioPlayer.load();
+                    activePlayer = audioPlayer;
+                }
+
+                let infoText = `${isVideo ? '🎥' : '🎵'} ${currentFilename}`;
                 if (duration) infoText += ` | ⏱️ ${duration}`;
-                if (bitrate)  infoText += ` | 🎵 ${bitrate}`;
+                if (bitrate)  infoText += ` | ⚡ ${bitrate}`;
                 audioInfo.textContent = infoText;
 
                 audioPlayerContainer.style.display = 'block';
@@ -915,8 +1020,8 @@
                 // init sliders with real duration
                 initCutSliders(totalDurationSec || 300);
 
-                addLogEntry(currentFilename, { size: currentBlob.size, duration, bitrate });
-                showStatus('✅ Audio listo — elige una acción', 'success');
+                addLogEntry(currentFilename, { size: currentBlob.size, duration, bitrate }, isVideo);
+                showStatus(isVideo ? '✅ Video listo — elige una acción' : '✅ Audio listo — elige una acción', 'success');
 
                 urlInput.value = '';
                 titleInput.value = '';
@@ -963,7 +1068,6 @@
             const s     = parseFloat(rangeStart.value);
             const e     = parseFloat(rangeEnd.value);
 
-            // keep s < e with 1s gap
             // Update text inputs
             inputStart.value = secsToMMSS(s);
             inputEnd.value   = secsToMMSS(e);
@@ -977,11 +1081,6 @@
             const rightPct = (e / total) * 100;
             rangeTrackFill.style.left  = leftPct  + '%';
             rangeTrackFill.style.width = (rightPct - leftPct) + '%';
-
-            // Seek player to start point so user hears it
-            if (audioPlayer.readyState >= 1) {
-                // only update if not dragging end handle
-            }
         }
 
         rangeStart.addEventListener('input', () => {
@@ -989,7 +1088,7 @@
                 rangeStart.value = parseFloat(rangeEnd.value) - 1;
             }
             updateCutUI();
-            if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeStart.value);
+            if (activePlayer.readyState >= 1) activePlayer.currentTime = parseFloat(rangeStart.value);
         });
 
         rangeEnd.addEventListener('input', () => {
@@ -997,7 +1096,7 @@
                 rangeEnd.value = parseFloat(rangeStart.value) + 1;
             }
             updateCutUI();
-            if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeEnd.value);
+            if (activePlayer.readyState >= 1) activePlayer.currentTime = parseFloat(rangeEnd.value);
         });
 
         // Allow typing time in MM:SS or raw seconds
@@ -1006,7 +1105,7 @@
             if (!isNaN(s)) {
                 rangeStart.value = Math.max(0, Math.min(s, parseFloat(rangeEnd.value) - 1));
                 updateCutUI();
-                if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeStart.value);
+                if (activePlayer.readyState >= 1) activePlayer.currentTime = parseFloat(rangeStart.value);
             } else {
                 inputStart.value = secsToMMSS(parseFloat(rangeStart.value));
             }
@@ -1018,7 +1117,7 @@
             if (!isNaN(e)) {
                 rangeEnd.value = Math.min(max, Math.max(e, parseFloat(rangeStart.value) + 1));
                 updateCutUI();
-                if (audioPlayer.readyState >= 1) audioPlayer.currentTime = parseFloat(rangeEnd.value);
+                if (activePlayer.readyState >= 1) activePlayer.currentTime = parseFloat(rangeEnd.value);
             } else {
                 inputEnd.value = secsToMMSS(parseFloat(rangeEnd.value));
             }
@@ -1038,11 +1137,13 @@
                 return;
             }
 
+            const isVideo = currentFormat === 'mp4';
+
             btnCutDownload.disabled = true;
-            startProgress('Cortando audio');
+            startProgress(isVideo ? 'Cortando video' : 'Cortando audio');
 
             try {
-                const params = new URLSearchParams({ url: currentUrl, start: startSec, end: endSec });
+                const params = new URLSearchParams({ url: currentUrl, start: startSec, end: endSec, format: currentFormat });
                 if (currentTitle)  params.append('title',  currentTitle);
                 if (currentArtist) params.append('artist', currentArtist);
 
@@ -1052,7 +1153,7 @@
                 }
 
                 const cd = response.headers.get('content-disposition');
-                let trimFilename = currentFilename.replace('.m4a', '_trim.m4a');
+                let trimFilename = currentFilename.replace(/\.(mp3|mp4)$/, (ext) => `_trim${ext}`);
                 if (cd) {
                     const m = cd.match(/filename="?([^"]+)"?/);
                     if (m) trimFilename = m[1];
@@ -1068,17 +1169,18 @@
 
                 saveBlobAs(trimBlob, trimFilename);
 
-                // also update player with trimmed audio
-                audioPlayer.src = URL.createObjectURL(trimBlob);
-                audioPlayer.load();
+                // also update player with trimmed media
+                const trimUrl = URL.createObjectURL(trimBlob);
+                activePlayer.src = trimUrl;
+                activePlayer.load();
 
-                let infoText = `✂️ ${trimFilename}`;
+                let infoText = `${isVideo ? '🎥' : '🎵'} ${trimFilename}`;
                 if (duration) infoText += ` | ⏱️ ${duration}`;
-                if (bitrate)  infoText += ` | 🎵 ${bitrate}`;
+                if (bitrate)  infoText += ` | ⚡ ${bitrate}`;
                 audioInfo.textContent = infoText;
 
-                addLogEntry(trimFilename, { size: trimBlob.size, duration, bitrate });
-                showStatus('✅ Audio cortado y descargado', 'success');
+                addLogEntry(trimFilename, { size: trimBlob.size, duration, bitrate }, isVideo);
+                showStatus(isVideo ? '✅ Video cortado y descargado' : '✅ Audio cortado y descargado', 'success');
             } catch (error) {
                 finishProgress(false);
                 showStatus(`❌ Error: ${error.message}`, 'error');
@@ -1093,12 +1195,24 @@
             cutPanel.classList.remove('show');
             actionButtons.style.display = 'none';
             audioPlayer.src = '';
+            videoPlayer.src = '';
+            audioPlayer.style.display = 'none';
+            videoPlayer.style.display = 'none';
             audioInfo.textContent = '';
             platformDetector.innerHTML = '';
             btnEditCut.textContent = '✂️ Editar / Cortar';
             currentBlob = null;
             currentFilename = '';
             currentUrl = '';
+            currentFormat = 'mp3';
+            activePlayer = audioPlayer;
+
+            // reset format selector active state
+            formatOptions.forEach(o => o.classList.remove('active'));
+            optionMp3.classList.add('active');
+            optionMp3.querySelector('input[type="radio"]').checked = true;
+            downloadBtn.innerHTML = '⬇️ Procesar Audio';
+
             statusDiv.className = 'status';
             form.reset();
         });
